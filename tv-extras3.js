@@ -118,6 +118,13 @@ setInterval(()=>{const c=A(),on=c&&c.rp!=null;rb.style.display=on?'flex':'none';
   if(!x._tvl||!x._tvl.isConnected){x._tvl=D.createElement('div');x._tvl.className='tvcut';cv.appendChild(x._tvl);cv.addEventListener('mousemove',ev=>{if(x._cut){x._tvl.style.display='block';x._tvl.style.left=(ev.clientX-cv.getBoundingClientRect().left)+'px'}});cv.addEventListener('mouseleave',()=>x._tvl.style.display='none')}
   if(!x._cut)x._tvl.style.display='none'})},200);
 
+/* ---------- 8. right panel hide / show handle ---------- */
+const sdH=D.createElement('button');sdH.id='tvsd';D.body.appendChild(sdH);
+const sdCss=D.createElement('style');sdCss.textContent='body.nosd #side{display:none!important}#tvsd{position:fixed;z-index:330;top:50%;width:18px;height:60px;margin-top:-30px;padding:0;background:#1e222d;border:1px solid #363a45;border-right:0;border-radius:8px 0 0 8px;color:#d1d4dc;font:700 15px system-ui;cursor:pointer}#tvsd:hover{background:#2a2e39;color:#e6b422}';D.head.appendChild(sdCss);
+const sdPos=()=>{const hid=D.body.classList.contains('nosd'),s=$('#side');sdH.textContent=hid?'‹':'›';sdH.title=hid?'Show panel':'Hide panel';sdH.style.right=hid||!s?'0':s.getBoundingClientRect().width+'px'};
+sdH.onclick=()=>{D.body.classList.toggle('nosd');V.sdHide=D.body.classList.contains('nosd')?1:0;save();sdPos();setTimeout(()=>dispatchEvent(new Event('resize')),50)};
+if(V.sdHide)D.body.classList.add('nosd');setInterval(sdPos,500);sdPos();
+
 /* ---------- 7. bottom range buttons ---------- */
 const rg=D.createElement('div');rg.id='tvrg';rg.innerHTML=['1D','5D','1M','3M','6M','YTD','1Y','5Y','All'].map(x=>`<button>${x}</button>`).join('');D.body.appendChild(rg);
 rg.onclick=e=>{if(e.target.tagName!=='BUTTON')return;const c=A(),a=c.view();if(!a.length)return;const last=a[a.length-1].time,d=864e2,k=e.target.textContent;

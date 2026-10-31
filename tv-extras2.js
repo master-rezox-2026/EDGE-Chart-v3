@@ -87,15 +87,31 @@ const nice=r=>{const e=Math.pow(10,Math.floor(Math.log10(r))),f=r/e;return(f<1.5
 const fq=v=>v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?(v/1e3).toFixed(1)+'K':v>=100?v.toFixed(0):v>=1?v.toFixed(1):v.toFixed(2);
 function fpAdd(c,F,T,p,q,sellAgg){const per=c.tfm*60,t=Math.floor(T/1000/per)*per;let B=F.bars.get(t);if(!B){B={lv:new Map(),b:0,s:0};F.bars.set(t,B)}
  const k=Math.floor(p/F.step+1e-9);let L=B.lv.get(k);if(!L){L=[0,0];B.lv.set(k,L)}if(sellAgg){L[0]+=q;B.s+=q}else{L[1]+=q;B.b+=q}}
-function fpStop(c){if(c._fp){c._fp.dead=1;if(c._fp.ws){c._fp.ws.onmessage=null;c._fp.ws.close()}c._fp=null}}
-async function fpStart(c){const key=c.src+c.name+c.tfm;if(c._fp&&c._fp.key===key)return;fpStop(c);
- if(!(c.src==='BF'||c.src==='BN')||!c.view().length){c._fp={key,none:1,bars:new Map(),step:1};return}
- const a=c.view().slice(-30),avg=a.reduce((s,x)=>s+x.high-x.low,0)/a.length||1;
- const F=c._fp={key,bars:new Map(),step:nice(avg/9),n:0},fut=c.src==='BF',base=fut?'https://fapi.binance.com/fapi/v1':'https://api.binance.com/api/v3';
+/* real trades are used where fully covered (t0..now); older bars are ESTIMATED from 1m klines (exact volume + taker-buy split, spread over the candle's price range) */
+function fpBar(F,t){return(F.t0!=null&&t>=F.t0&&F.bars.get(t))||F.syn.get(t)||null}
+function fpSyn(c,F,ks,from){const per=c.tfm*60,m=new Map();
+ ks.forEach(k=>{const bt=Math.floor(k[0]/1000/per)*per;if(from!=null&&bt<from)return;const lo=+k[3],hi=+k[2],vol=+k[5],tb=+k[9]||0;let B=m.get(bt);if(!B){B={lv:new Map(),b:0,s:0};m.set(bt,B)}
+  const a=Math.floor(lo/F.step+1e-9),z=Math.floor(hi/F.step+1e-9),n=z-a+1,buy=tb/n,sell=(vol-tb)/n;
+  for(let i=a;i<=z;i++){let L=B.lv.get(i);if(!L){L=[0,0];B.lv.set(i,L)}L[0]+=sell;L[1]+=buy}B.s+=vol-tb;B.b+=tb});
+ m.forEach((B,t)=>F.syn.set(t,B))}
+async function fpSynLoad(c,F,mins){const fut=c.src==='BF',base=fut?'https://fapi.binance.com/fapi/v1':'https://api.binance.com/api/v3',ps=fut?1500:1000,pages=Math.min(6,Math.ceil(mins/ps)),now=Date.now(),per=c.tfm*60;
+ const R=await Promise.all(Array.from({length:pages},(_,i)=>jget(`${base}/klines?symbol=${c.name}&interval=1m&limit=${ps}&endTime=${now-i*ps*60000}`).catch(()=>null)));
+ const m=new Map();R.forEach(j=>Array.isArray(j)&&j.forEach(k=>m.set(k[0],k)));const ks=[...m.values()].sort((a,b)=>a[0]-b[0]);if(F.dead||!ks.length)return;
+ fpSyn(c,F,ks,Math.ceil(ks[0][0]/1000/per)*per)}
+function fpStop(c){if(c._fp){c._fp.dead=1;clearInterval(c._fp.sy);if(c._fp.ws){c._fp.ws.onmessage=null;c._fp.ws.close()}c._fp=null}}
+async function fpStart(c){const key=c.src+c.name+c.tfm;if(c._fp&&c._fp.key===key)return;
+ if(!(c.src==='BF'||c.src==='BN')){fpStop(c);c._fp={key,none:1,bars:new Map(),syn:new Map(),step:1};return}
+ const a0=c.view();if(a0.length<5)return;fpStop(c);
+ const a=a0.slice(-30),avg=a.reduce((s,x)=>s+x.high-x.low,0)/a.length||1,fut=c.src==='BF',base=fut?'https://fapi.binance.com/fapi/v1':'https://api.binance.com/api/v3';
+ const F=c._fp={key,bars:new Map(),syn:new Map(),step:nice(avg/9),t0:null,buf:[],ready:0,maxA:0};
  F.ws=new WebSocket(`wss://${fut?'fstream.binance.com':'stream.binance.com:9443'}/ws/${c.name.toLowerCase()}@aggTrade`);
- F.ws.onmessage=e=>{const d=JSON.parse(e.data);if(d&&d.p)fpAdd(c,F,d.T,+d.p,+d.q,d.m)};
+ F.ws.onmessage=e=>{const d=JSON.parse(e.data);if(!d||!d.p)return;if(!F.ready){F.buf.push(d);return}if(d.a<=F.maxA)return;F.maxA=d.a;fpAdd(c,F,d.T,+d.p,+d.q,d.m)};
+ fpSynLoad(c,F,Math.min(c.tfm*70,9000)).catch(e=>{F.err=String(e.message||e)});F.sy=setInterval(()=>fpSynLoad(c,F,c.tfm*2+3).catch(()=>{}),20000);
  try{let j=await jget(`${base}/aggTrades?symbol=${c.name}&limit=1000`);
-  for(let p=0;p<15&&!F.dead&&Array.isArray(j)&&j.length;p++){j.forEach(t=>fpAdd(c,F,t.T,+t.p,+t.q,t.m));F.n+=j.length;const from=j[0].a-1000;if(from<0)break;j=await jget(`${base}/aggTrades?symbol=${c.name}&fromId=${from}&limit=1000`)}}catch(e){F.err=String(e.message||e)}}
+  for(let p=0;p<15&&!F.dead&&Array.isArray(j)&&j.length;p++){if(!F.ready){F.maxA=j[j.length-1].a}j.forEach(t=>fpAdd(c,F,t.T,+t.p,+t.q,t.m));F.t0=Math.ceil(j[0].T/1000/(c.tfm*60))*(c.tfm*60);
+   if(!F.ready){F.ready=1;F.buf.forEach(d=>{if(d.a>F.maxA){F.maxA=d.a;fpAdd(c,F,d.T,+d.p,+d.q,d.m)}});F.buf=[]}
+   const from=j[0].a-1000;if(from<0)break;j=await jget(`${base}/aggTrades?symbol=${c.name}&fromId=${from}&limit=1000`)}}catch(e){F.err=String(e.message||e)}
+ if(!F.ready){F.ready=1;F.buf=[]}}
 function fpDraw(c){const cv=c.host.querySelector('.cv');if(!cv)return;let k=c._fk;
  if(!k||!k.isConnected){k=c._fk=D.createElement('canvas');k.className='tvfp';cv.style.position='relative';cv.appendChild(k)}
  const dpr=devicePixelRatio||1,w=cv.clientWidth,h=cv.clientHeight;if(k.width!==w*dpr||k.height!==h*dpr){k.width=w*dpr;k.height=h*dpr;k.style.width=w+'px';k.style.height=h+'px'}
@@ -106,7 +122,7 @@ function fpDraw(c){const cv=c.host.querySelector('.cv');if(!cv)return;let k=c._f
  const sp=ts.options().barSpacing,bw=Math.max(2,sp*.92),H=h-th,RH=15,TH=RH*4,ty=H-TH,i0=Math.max(0,Math.floor(vr.from)),i1=Math.min(a.length-1,Math.ceil(vr.to));
  g.fillStyle='rgba(19,23,34,.94)';g.fillRect(0,ty,w-pw,TH);g.textBaseline='middle';
  const labs=['Delta','Volume','Buy','Sell'];g.font='10px system-ui';
- for(let i=i0;i<=i1;i++){const x=ts.logicalToCoordinate(i);if(x==null||x<-bw||x>w-pw+bw)continue;const B=F.bars.get(a[i].time);if(!B)continue;
+ for(let i=i0;i<=i1;i++){const x=ts.logicalToCoordinate(i);if(x==null||x<-bw||x>w-pw+bw)continue;const B=fpBar(F,a[i].time);if(!B)continue;
   let mx=0;B.lv.forEach(v=>{mx=Math.max(mx,v[0]+v[1])});
   B.lv.forEach((v,kk)=>{const y0=c.s.priceToCoordinate((kk+1)*F.step),y1=c.s.priceToCoordinate(kk*F.step);if(y0==null||y1==null||y1<0||y0>ty)return;const hh=y1-y0,t=v[0]+v[1];
    g.fillStyle=`rgba(${v[1]>=v[0]?'38,166,154':'239,83,80'},${.15+.55*t/mx})`;g.fillRect(x-bw/2,y0,bw,Math.max(1,hh-1));
@@ -117,7 +133,7 @@ function fpDraw(c){const cv=c.host.querySelector('.cv');if(!cv)return;let k=c._f
    if(sp>=30){g.fillStyle='#e5e5e5';g.textAlign='center';g.font='10px system-ui';g.fillText(fq(v),x,yy+RH/2+1)}})}
  g.textAlign='left';g.fillStyle='#8b91a3';g.font='10px system-ui';labs.forEach((l,r)=>{g.fillStyle='rgba(19,23,34,.9)';g.fillRect(0,ty+r*RH,44,RH);g.fillStyle='#9aa0b0';g.fillText(l,4,ty+r*RH+RH/2+1)});
  g.strokeStyle='#2a2e39';for(let r=0;r<=4;r++){g.beginPath();g.moveTo(0,ty+r*RH);g.lineTo(w-pw,ty+r*RH);g.stroke()}
- if(F.none||F.err||!F.bars.size){g.fillStyle='#e6b422';g.textAlign='left';g.font='11px system-ui';g.fillText(F.none?'Footprint: Binance symbols only (tick data needed)':F.err?'Tick data error: '+F.err:'Loading tick data…',52,ty-10)}}
+ if(F.none||(F.err&&!F.syn.size)||(!F.bars.size&&!F.syn.size)){g.fillStyle='#e6b422';g.textAlign='left';g.font='11px system-ui';g.fillText(F.none?'Footprint: Binance symbols only (tick data needed)':F.err?'Tick data error: '+F.err:'Loading tick data…',52,ty-10)}else if(F.syn.size){g.fillStyle='#8b91a3';g.textAlign='left';g.font='10px system-ui';g.fillText('Older bars: estimated from 1m klines · recent bars: real trades',52,ty-10)}}
 
 /* header: full coin name (ZECUSDT.P for Binance perps) + timeframe, width measured so nothing is cut */
 const mctx=D.createElement('canvas').getContext('2d'),tw=(s,f)=>{mctx.font=f;return Math.ceil(mctx.measureText(s).width)};
