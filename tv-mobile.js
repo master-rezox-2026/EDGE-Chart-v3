@@ -38,11 +38,19 @@ if(mob()){D.body.classList.add('mb');if(!D.body.classList.contains('nosd'))D.bod
 /* ---------- touch -> mouse for drawing tools ---------- */
 const cf=el=>el&&el.closest&&el.closest('.cv')?charts.find(c=>c.host&&c.host.contains(el)):null;
 const fire=(el,type,t)=>el.dispatchEvent(new MouseEvent(type,{bubbles:true,cancelable:true,clientX:t.clientX,clientY:t.clientY,button:0,view:window}));
+const ring=D.createElement('div');ring.style.cssText='position:fixed;z-index:200;width:36px;height:36px;margin:-18px 0 0 -18px;border:2px solid #e6b422;border-radius:50%;pointer-events:none;display:none;box-shadow:0 0 0 1px #000a,inset 0 0 0 1px #000a';
+const dot=D.createElement('div');dot.style.cssText='position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px 0 0 -2px;border-radius:50%;background:#e6b422';ring.appendChild(dot);D.body.appendChild(ring);
+const drOn=c=>!!(c&&c.dpc&&c.dpc.style.pointerEvents==='auto'),cvr=c=>c.host.querySelector('.cv').getBoundingClientRect();
+/* Drawing on touch = "trackpad mode": dragging anywhere MOVES the crosshair by the finger's movement (so your finger never covers it);
+   a short TAP places the point exactly where the crosshair is. */
 let tp=null;
-D.addEventListener('touchstart',e=>{const c=cf(e.target);if(!c||e.touches.length!==1){tp=null;return}const t=e.touches[0],dr=!!(c.dpc&&c.dpc.style.pointerEvents==='auto');
- tp={c,dr,x:t.clientX,y:t.clientY,mv:0};if(dr){e.preventDefault();fire(c.dpc,'mousemove',t);fire(c.dpc,'mousedown',t)}},{passive:false});
-D.addEventListener('touchmove',e=>{if(!tp)return;const t=e.touches[0];if(Math.hypot(t.clientX-tp.x,t.clientY-tp.y)>6)tp.mv=1;if(tp.dr){e.preventDefault();fire(tp.c.dpc,'mousemove',t)}},{passive:false});
+D.addEventListener('touchstart',e=>{const c=cf(e.target);if(!c||e.touches.length!==1){tp=null;return}const t=e.touches[0],dr=drOn(c);
+ tp={c,dr,lx:t.clientX,ly:t.clientY,x:t.clientX,y:t.clientY,mv:0,t:Date.now()};
+ if(dr){e.preventDefault();if(!c._vc){const r=cvr(c);c._vc={clientX:r.left+r.width/2,clientY:r.top+r.height/2}}fire(c.dpc,'mousemove',c._vc)}},{passive:false});
+D.addEventListener('touchmove',e=>{if(!tp)return;const t=e.touches[0];if(Math.hypot(t.clientX-tp.x,t.clientY-tp.y)>8)tp.mv=1;
+ if(tp.dr){e.preventDefault();const c=tp.c,r=cvr(c),v=c._vc;v.clientX=Math.max(r.left+2,Math.min(r.right-60,v.clientX+(t.clientX-tp.lx)));v.clientY=Math.max(r.top+2,Math.min(r.bottom-30,v.clientY+(t.clientY-tp.ly)));tp.lx=t.clientX;tp.ly=t.clientY;fire(c.dpc,'mousemove',v)}},{passive:false});
 D.addEventListener('touchend',e=>{if(!tp)return;const t=e.changedTouches[0],o=tp;tp=null;
- if(o.dr){e.preventDefault();fire(o.c.dpc,'mouseup',t)}
+ if(o.dr){e.preventDefault();if(!o.mv&&Date.now()-o.t<450){const v=o.c._vc;fire(o.c.dpc,'mousemove',v);fire(o.c.dpc,'mousedown',v);fire(o.c.dpc,'mouseup',v)}}
  else if(!o.mv){const el=D.elementFromPoint(t.clientX,t.clientY);if(el){fire(el,'mousedown',t);fire(el,'mouseup',t)}}},{passive:false});
+setInterval(()=>{const c=charts.find(drOn);if(c&&c._vc){ring.style.display='block';ring.style.left=c._vc.clientX+'px';ring.style.top=c._vc.clientY+'px'}else ring.style.display='none'},60);
 })();
