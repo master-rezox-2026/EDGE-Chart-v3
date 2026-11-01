@@ -291,6 +291,7 @@ const O=S.dpo=Object.assign({stay:0,lock:0,favBar:1,snapInd:0,last:{},def:{},fav
 O.hid=Object.assign({dr:0,ind:0,pos:0},O.hid||{});
 S.set=S.set||{};
 let tool='cur',pts=[],pc=null,mouse=null,sel=null,drag=null,ds=null,free=null,hist=[],redoS=[],pendEm=null,pendImg=null,curStyle='cross';
+const DPX_M=()=>matchMedia('(max-width:820px)').matches;
 let SH=0,CT=0,AL=0,msel=new Set(),clip=null,trail=[],lm=null;
 const uid=()=>'d'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const lst=sym=>S.dp[sym]||(S.dp[sym]=[]);
@@ -383,9 +384,9 @@ function pt2d(c,x,y,nomag){if(SH&&!nomag&&pc===c&&pts.length&&!drag&&!free){cons
 const mp=(c,e)=>{const r=c.dpc.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}};
 const pxs=(c,o)=>o.p.map(q=>({x:t2x(c,q.t),y:c.s.priceToCoordinate(q.p)}));
 function pick(c,x,y){const L=lst(c.cfg.sym);
- if(sel&&L.includes(sel)&&!sel.lk&&shown(c,sel)&&!['brush','hilite'].includes(sel.k)){const P=pxs(c,sel);for(let i=0;i<P.length;i++)if(P[i].x!=null&&P[i].y!=null&&Math.hypot(P[i].x-x,P[i].y-y)<=9)return{o:sel,i}}
+ if(sel&&L.includes(sel)&&!sel.lk&&shown(c,sel)&&!['brush','hilite'].includes(sel.k)){const P=pxs(c,sel);for(let i=0;i<P.length;i++)if(P[i].x!=null&&P[i].y!=null&&Math.hypot(P[i].x-x,P[i].y-y)<=(DPX_M()?26:9))return{o:sel,i}}
  for(let j=L.length-1;j>=0;j--){const o=L[j];if(!shown(c,o))continue;const h=HM.get(o);if(!h)continue;
-  for(const s of h.s)if(dseg(x,y,s)<=Math.max(5,o.w/2+3))return{o,i:-1};
+  for(const s of h.s)if(dseg(x,y,s)<=Math.max(DPX_M()?16:5,o.w/2+3))return{o,i:-1};
   for(const r of h.r)if(x>=r[0]&&x<=r[2]&&y>=r[1]&&y<=r[3])return{o,i:-1};
   for(const f of h.f)if(inPoly(f,x,y))return{o,i:-1}}
  return null}
@@ -418,7 +419,7 @@ function one(c){if(!c.c||!c.s||!c.host)return;if(c.dpc&&!c.dpc.isConnected)c.dpc
  const g=k.getContext('2d');g.setTransform(r,0,0,r,0,0);g.clearRect(0,0,w,h);const{W,H}=area(c);g.save();g.beginPath();g.rect(0,0,W,H);g.clip();
  const L=S.dp[c.cfg.sym]||[];
  for(const o of L){if(!shown(c,o))continue;try{paint(g,c,o,W,H,0)}catch(e){if(!one.e){one.e=1;console.error('DrawingPro paint',o.k,e)}}}
- if(sel&&L.includes(sel)&&shown(c,sel)&&!['brush','hilite'].includes(sel.k)){pxs(c,sel).forEach(q=>{if(q.x==null||q.y==null)return;g.beginPath();g.arc(q.x,q.y,5,0,TAU);g.fillStyle='#131722';g.fill();g.lineWidth=2;g.strokeStyle='#2962ff';g.stroke()})}
+ if(sel&&L.includes(sel)&&shown(c,sel)&&!['brush','hilite'].includes(sel.k)){pxs(c,sel).forEach(q=>{if(q.x==null||q.y==null)return;g.beginPath();g.arc(q.x,q.y,DPX_M()?11:5,0,TAU);g.fillStyle=DPX_M()?'rgba(255,255,255,.18)':'#131722';g.fill();g.lineWidth=2;g.strokeStyle='#2962ff';g.stroke()})}
  msel.forEach(o=>{if(!L.includes(o)||!shown(c,o))return;pxs(c,o).forEach(q=>{if(q.x==null||q.y==null)return;g.beginPath();g.arc(q.x,q.y,5,0,TAU);g.fillStyle='#2962ff';g.fill();g.lineWidth=2;g.strokeStyle='#fff';g.stroke()})});
  const T=TD[tool];
  if(T&&tool!=='cur'&&mouse&&mouse.c===c){const d=pt2d(c,mouse.x,mouse.y);
@@ -652,5 +653,6 @@ window.addEventListener('resize',()=>{closeFly();if(sel)showFloat(actChart())});
 if(PERP_ONLY)setTimeout(()=>{const b=$('#e_perp');if(b&&!b.classList.contains('on'))b.click()},900);
 
 buildBar();
+window.DPX={st:()=>({tool,n:pts.length,need:(TD[tool]||{}).need||1,name:(TD[tool]||{}).n||'',sel:!!sel}),cancel:()=>{pts=[];pc=null;ds=null;setTool('cur')},O};
 window.DrawingPro={tool:()=>tool,set:setTool,list:()=>S.dp,export:()=>JSON.stringify(S.dp),import:j=>{S.dp=JSON.parse(j);save()}};
 })();
