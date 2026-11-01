@@ -244,7 +244,11 @@ function paint(g,c,o,W,H,pv){
  case'amark':{const dx=B.x-A.x,dy=B.y-A.y,L=Math.hypot(dx,dy)||1,ux=dx/L,uy=dy/L,nx=-uy,ny=ux,hl=Math.min(22,L*.5),sw=3+o.w,hw=10+o.w*2,bx=B.x-ux*hl,by=B.y-uy*hl;
   const pts=[{x:A.x+nx*sw/2,y:A.y+ny*sw/2},{x:bx+nx*sw/2,y:by+ny*sw/2},{x:bx+nx*hw,y:by+ny*hw},B,{x:bx-nx*hw,y:by-ny*hw},{x:bx-nx*sw/2,y:by-ny*sw/2},{x:A.x-nx*sw/2,y:A.y-ny*sw/2}];g.save();g.setLineDash([]);path(pts,1);g.fill();g.restore();hit&&hit.f.push(pts);break}
  case'aup':case'adn':{const s=k==='aup'?1:-1,pts=[A,{x:A.x+13,y:A.y+14*s},{x:A.x+6,y:A.y+14*s},{x:A.x+6,y:A.y+38*s},{x:A.x-6,y:A.y+38*s},{x:A.x-6,y:A.y+14*s},{x:A.x-13,y:A.y+14*s}];g.save();g.setLineDash([]);path(pts,1);g.fill();g.restore();hit&&hit.f.push(pts);if(o.txt)txt(o.txt,A.x,A.y+(46*s),{fs:o.fs});break}
- case'rect':{const pts=[A,{x:B.x,y:A.y},B,{x:A.x,y:B.y}];poly(pts,true,1);break}
+ case'rect':{const cw=g.canvas.clientWidth||g.canvas.width,ex=+o.rx||0,top=Math.min(A.y,B.y),bot=Math.max(A.y,B.y);let L=Math.min(A.x,B.x),R=Math.max(A.x,B.x);if(ex&1)L=-5;if(ex&2)R=cw+5;
+ const pts=[{x:L,y:top},{x:R,y:top},{x:R,y:bot},{x:L,y:bot}],fon=o.fon==null?1:+o.fon;
+ if(o.bon!=null&&+o.bon===0){if(fon)fillP(pts,null);rec(pts,true)}else poly(pts,true,fon?1:0);
+ if(+o.rmid){const my=(top+bot)/2;g.save();g.strokeStyle=o.rmc||o.col;g.setLineDash([5,4]);g.beginPath();g.moveTo(L,my);g.lineTo(R,my);g.stroke();g.restore()}
+ break}
  case'rrect':{const dx=B.x-A.x,dy=B.y-A.y,L=Math.hypot(dx,dy)||1,nx=-dy/L,ny=dx/L,h=(C.x-A.x)*nx+(C.y-A.y)*ny;poly([A,B,{x:B.x+nx*h,y:B.y+ny*h},{x:A.x+nx*h,y:A.y+ny*h}],true,1);break}
  case'circle':poly(cirP(A.x,A.y,Math.hypot(B.x-A.x,B.y-A.y),Math.hypot(B.x-A.x,B.y-A.y)),true,1);break;
  case'ellipse':poly(cirP((A.x+B.x)/2,(A.y+B.y)/2,Math.abs(B.x-A.x)/2,Math.abs(B.y-A.y)/2),true,1);break;
@@ -383,8 +387,16 @@ function pt2d(c,x,y,nomag){if(SH&&!nomag&&pc===c&&pts.length&&!drag&&!free){cons
  const t=l2t(c,lg);return t==null?null:{t,p:pr}}
 const mp=(c,e)=>{const r=c.dpc.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}};
 const pxs=(c,o)=>o.p.map(q=>({x:t2x(c,q.t),y:c.s.priceToCoordinate(q.p)}));
+/* 8-handle boxes: 4 corners + 4 edge midpoints (rectangle, ellipse, Gann box/square, price / date / date&price ranges) */
+const BOXK=new Set(['rect','gbox','gsq','ellipse','prng','drng','dprng']),HD=[[0,0],[1,0],[2,0],[0,1],[2,1],[0,2],[1,2],[2,2]];
+function boxH(c,o){if(!o.p||o.p.length!==2)return null;const P=pxs(c,o);if(P.some(q=>q.x==null||q.y==null))return null;
+ const xs=[Math.min(P[0].x,P[1].x),(P[0].x+P[1].x)/2,Math.max(P[0].x,P[1].x)],ys=[Math.min(P[0].y,P[1].y),(P[0].y+P[1].y)/2,Math.max(P[0].y,P[1].y)];return HD.map(([gx,gy])=>({x:xs[gx],y:ys[gy]}))}
+function boxDrag(c,o,dr,q){const[gx,gy]=HD[dr.i-100],P=pxs(c,{p:dr.orig});if(P.some(z=>z.x==null||z.y==null))return;
+ const np=dr.orig.map(z=>({...z})),L=P[0].x<=P[1].x?0:1,R=1-L,T=P[0].y<=P[1].y?0:1,Bm=1-T;let n;
+ if(gx===0&&(n=pt2d(c,q.x,P[L].y,1)))np[L].t=n.t;if(gx===2&&(n=pt2d(c,q.x,P[R].y,1)))np[R].t=n.t;
+ if(gy===0&&(n=pt2d(c,P[T].x,q.y,1)))np[T].p=n.p;if(gy===2&&(n=pt2d(c,P[Bm].x,q.y,1)))np[Bm].p=n.p;o.p=np}
 function pick(c,x,y){const L=lst(c.cfg.sym);
- if(sel&&L.includes(sel)&&!sel.lk&&shown(c,sel)&&!['brush','hilite'].includes(sel.k)){const P=pxs(c,sel);for(let i=0;i<P.length;i++)if(P[i].x!=null&&P[i].y!=null&&Math.hypot(P[i].x-x,P[i].y-y)<=(DPX_M()?26:9))return{o:sel,i}}
+ if(sel&&L.includes(sel)&&!sel.lk&&shown(c,sel)&&!['brush','hilite'].includes(sel.k)){const P=BOXK.has(sel.k)&&boxH(c,sel)?[]:pxs(c,sel);if(BOXK.has(sel.k)){const H=boxH(c,sel)||[];for(let i=0;i<H.length;i++)if(Math.hypot(H[i].x-x,H[i].y-y)<=(DPX_M()?26:9))return{o:sel,i:100+i}}for(let i=0;i<P.length;i++)if(P[i].x!=null&&P[i].y!=null&&Math.hypot(P[i].x-x,P[i].y-y)<=(DPX_M()?26:9))return{o:sel,i}}
  for(let j=L.length-1;j>=0;j--){const o=L[j];if(!shown(c,o))continue;const h=HM.get(o);if(!h)continue;
   for(const s of h.s)if(dseg(x,y,s)<=Math.max(DPX_M()?16:5,o.w/2+3))return{o,i:-1};
   for(const r of h.r)if(x>=r[0]&&x<=r[2]&&y>=r[1]&&y<=r[3])return{o,i:-1};
@@ -419,7 +431,7 @@ function one(c){if(!c.c||!c.s||!c.host)return;if(c.dpc&&!c.dpc.isConnected)c.dpc
  const g=k.getContext('2d');g.setTransform(r,0,0,r,0,0);g.clearRect(0,0,w,h);const{W,H}=area(c);g.save();g.beginPath();g.rect(0,0,W,H);g.clip();
  const L=S.dp[c.cfg.sym]||[];
  for(const o of L){if(!shown(c,o))continue;try{paint(g,c,o,W,H,0)}catch(e){if(!one.e){one.e=1;console.error('DrawingPro paint',o.k,e)}}}
- if(sel&&L.includes(sel)&&shown(c,sel)&&!['brush','hilite'].includes(sel.k)){pxs(c,sel).forEach(q=>{if(q.x==null||q.y==null)return;g.beginPath();g.arc(q.x,q.y,DPX_M()?11:5,0,TAU);g.fillStyle=DPX_M()?'rgba(255,255,255,.18)':'#131722';g.fill();g.lineWidth=2;g.strokeStyle='#2962ff';g.stroke()})}
+ if(sel&&L.includes(sel)&&shown(c,sel)&&!['brush','hilite'].includes(sel.k)){(BOXK.has(sel.k)&&boxH(c,sel)||pxs(c,sel)).forEach(q=>{if(q.x==null||q.y==null)return;g.beginPath();g.arc(q.x,q.y,DPX_M()?11:5,0,TAU);g.fillStyle=DPX_M()?'rgba(255,255,255,.18)':'#131722';g.fill();g.lineWidth=2;g.strokeStyle='#2962ff';g.stroke()})}
  msel.forEach(o=>{if(!L.includes(o)||!shown(c,o))return;pxs(c,o).forEach(q=>{if(q.x==null||q.y==null)return;g.beginPath();g.arc(q.x,q.y,5,0,TAU);g.fillStyle='#2962ff';g.fill();g.lineWidth=2;g.strokeStyle='#fff';g.stroke()})});
  const T=TD[tool];
  if(T&&tool!=='cur'&&mouse&&mouse.c===c){const d=pt2d(c,mouse.x,mouse.y);
@@ -458,7 +470,8 @@ function clone(o,c){const n=JSON.parse(JSON.stringify(o));n.id=uid();n.p.forEach
 D.addEventListener('mousemove',e=>{
  if(free){const c=free.c,q=mp(c,e),d=pt2d(c,q.x,q.y,1);if(d){free.pts.push(d);free.px.push(q)}return}
  if(!drag)return;const c=drag.c,q=mp(c,e);let o=drag.o;if(!drag.moved){if(Math.hypot(q.x-drag.x,q.y-drag.y)<3)return;drag.moved=1;pushH();if(drag.cl&&drag.i<0){const n=JSON.parse(JSON.stringify(o));n.id=uid();lst(c.cfg.sym).push(n);drag.o=o=n;sel=n;msel.clear()}}
- if(drag.i>=0){const d=pt2d(c,q.x,q.y);if(d)o.p[drag.i]=d}
+ if(drag.i>=100)boxDrag(c,o,drag,q);
+ else if(drag.i>=0){const d=pt2d(c,q.x,q.y);if(d)o.p[drag.i]=d}
  else{let dx=q.x-drag.x,dy=q.y-drag.y;if(e.shiftKey){if(Math.abs(dx)>Math.abs(dy))dy=0;else dx=0}
   (drag.grp||[{o,orig:drag.orig}]).forEach(g2=>{if(g2.o.lk)return;g2.o.p=g2.orig.map(z=>{const x=t2x(c,z.t),y=c.s.priceToCoordinate(z.p);if(x==null||y==null)return z;return pt2d(c,x+dx,y+dy,1)||z})})}
  showFloat(c,1)});
@@ -578,6 +591,7 @@ function spec(o){const k=o.k,F=[],add=(ty,key,lb,op)=>F.push({ty,key,lb,op:op||{
  if(k==='text')add('chk','bg','Show background');
  if(EXT.has(k)){add('chk','exl','Extend left');add('chk','exr','Extend right')}
  if(SHPR.has(k))add('chk','shp','Show price labels');if(k==='pch')add('chk','mid','Middle line');
+ if(k==='rect'){add('sel','rx','Extend',{o:[["Don't extend",0],['Extend left',1],['Extend right',2],['Extend left & right',3]]});add('chk','bon','Border');add('chk','rmid','Middle line');add('col','rmc','Middle line color');add('chk','fon','Background')}
  if(k==='fib'){add('chk','trend','Trend line');add('chk','rev','Reverse')}
  if(o.lv){add('chk','shl','Show level labels');if(!SHPR.has(k))add('chk','shp','Show prices')}
  if(k==='reg'){add('num','dev','Deviation (σ)',{min:.5,max:6,step:.1});add('sel','src','Source',{o:[['Close','close'],['High','high'],['Low','low'],['Open','open']]})}
@@ -591,7 +605,7 @@ function spec(o){const k=o.k,F=[],add=(ty,key,lb,op)=>F.push({ty,key,lb,op:op||{
  if(k==='path')add('chk','arrow','Arrow at end');if(k==='ghost')add('num','seed','Random seed',{min:1,max:1e9,step:1});
  const tx=[];tx.push({ty:'txt',key:'txt',lb:['text','note','pnote','callout','comment','sign','pin','post','idea','aup','adn','flag'].includes(k)?'Text':'Label text',op:{}});tx.push({ty:'col',key:'tc',lb:'Text color',op:{}},{ty:'num',key:'fs',lb:'Font size',op:{min:8,max:80,step:1}},{ty:'chk',key:'b',lb:'Bold',op:{}},{ty:'chk',key:'i',lb:'Italic',op:{}});
  return{Style:F,Text:tx}}
-const defC=(o,key)=>({shl:1,trend:1,shq:1,bands:1,mid:1,arrow:1,bd:1,shp:['tl','ext','ray','info'].includes(o.k)?0:1}[key]||0);
+const defC=(o,key)=>({bon:1,fon:1,shl:1,trend:1,shq:1,bands:1,mid:1,arrow:1,bd:1,shp:['tl','ext','ray','info'].includes(o.k)?0:1}[key]||0);
 const fld=(o,f)=>{const v=o[f.key],id=`data-k="${f.key}" data-ty="${f.ty}"`;let inp='';
  if(f.ty==='col')inp=`<input type="color" ${id} value="${/^#[0-9a-f]{6}$/i.test(v||'')?v:(f.key==='fill'&&/^#[0-9a-f]{6}$/i.test(o.col)?o.col:'#808080')}">`;
  else if(f.ty==='num')inp=`<input type="number" ${id} min="${f.op.min}" max="${f.op.max}" step="${f.op.step}" value="${v==null?'':v}">`;
@@ -653,6 +667,6 @@ window.addEventListener('resize',()=>{closeFly();if(sel)showFloat(actChart())});
 if(PERP_ONLY)setTimeout(()=>{const b=$('#e_perp');if(b&&!b.classList.contains('on'))b.click()},900);
 
 buildBar();
-window.DPX={st:()=>({tool,n:pts.length,need:(TD[tool]||{}).need||1,name:(TD[tool]||{}).n||'',sel:!!sel}),cancel:()=>{pts=[];pc=null;ds=null;setTool('cur')},O};
+window.DPX={selo:()=>sel,st:()=>({tool,n:pts.length,need:(TD[tool]||{}).need||1,name:(TD[tool]||{}).n||'',sel:!!sel}),cancel:()=>{pts=[];pc=null;ds=null;setTool('cur')},O};
 window.DrawingPro={tool:()=>tool,set:setTool,list:()=>S.dp,export:()=>JSON.stringify(S.dp),import:j=>{S.dp=JSON.parse(j);save()}};
 })();

@@ -140,6 +140,15 @@ const mctx=D.createElement('canvas').getContext('2d'),tw=(s,f)=>{mctx.font=f;ret
 setInterval(()=>charts.forEach(c=>{const i=c.host&&c.host.querySelector('.hd input.sy');if(!i||D.activeElement===i)return;
  const v=c.src==='BF'?c.name+'.P':String(i.value).replace(/^[A-Za-z0-9]+:/,'');if(i.value!==v)i.value=v;i.style.width=(tw(v,'600 11px "Segoe UI",system-ui')+16)+'px';
  const f=c.host.querySelector('.hd input.tf');if(f)f.style.width=(tw(f.value,'400 11px "Segoe UI",system-ui')+14)+'px'}),400);
+/* selected drawing: highlight its price range on the price axis and its time range on the time axis (like TradingView) */
+setInterval(()=>charts.forEach(c=>{const cv=c.host&&c.host.querySelector('.cv');if(!cv||!c.s)return;
+ let bp=c._bp,bt=c._bt;if(!bp||!bp.isConnected){bp=c._bp=D.createElement('div');bt=c._bt=D.createElement('div');[bp,bt].forEach(e=>{e.style.cssText='position:absolute;z-index:6;pointer-events:none;background:rgba(41,98,255,.38);display:none';cv.appendChild(e)})}
+ const o=window.DPX&&DPX.selo(),L=o&&o.p&&(S.dp[c.cfg.sym]||[]).includes(o)?o.p:null;if(!L||L.length<2||(o.k&&['brush','hilite'].includes(o.k))){bp.style.display=bt.style.display='none';return}
+ try{const ts=c.c.timeScale(),a=c.view(),w=cv.clientWidth,h=cv.clientHeight;let pw=56,th=26;try{pw=c.c.priceScale('right').width()||56;th=ts.height()||26}catch(e){}
+  const ys=L.map(q=>c.s.priceToCoordinate(q.p)).filter(v=>v!=null),xs=L.map(q=>{let i=a.findIndex(b=>b.time>=q.t);if(i<0)i=a.length-1;return ts.logicalToCoordinate(i)}).filter(v=>v!=null);
+  if(!ys.length||!xs.length){bp.style.display=bt.style.display='none';return}
+  const y1=Math.min(...ys),y2=Math.max(...ys),x1=Math.min(...xs),x2=Math.max(...xs);
+  bp.style.cssText+=`;display:block;left:${w-pw}px;width:${pw}px;top:${y1}px;height:${Math.max(2,y2-y1)}px`;bt.style.cssText+=`;display:block;top:${h-th}px;height:${th}px;left:${x1}px;width:${Math.max(2,x2-x1)}px`}catch(e){}}),150);
 const wrap=(n,fn)=>{const o=Ch.prototype[n];Ch.prototype[n]=function(...a){const r=o.apply(this,a);try{fn.call(this)}catch(e){console.warn('tv2',e)}return r}};
 wrap('render',function(){hookClick(this);if(this.style==='footprint')fpDraw(this)});
 wrap('setStyle',function(){if(this.style!=='footprint')fpDraw(this);else if(window.tvSettings)this.render(0)});
