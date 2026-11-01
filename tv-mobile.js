@@ -43,14 +43,27 @@ const dot=D.createElement('div');dot.style.cssText='position:absolute;left:50%;t
 const drOn=c=>!!(c&&c.dpc&&c.dpc.style.pointerEvents==='auto'),cvr=c=>c.host.querySelector('.cv').getBoundingClientRect();
 /* Drawing on touch = "trackpad mode": dragging anywhere MOVES the crosshair by the finger's movement (so your finger never covers it);
    a short TAP places the point exactly where the crosshair is. */
-let tp=null;
-D.addEventListener('touchstart',e=>{const c=cf(e.target);if(!c||e.touches.length!==1){tp=null;return}const t=e.touches[0],dr=drOn(c);
+const cvOf=c=>c.host.querySelector('.cv'),curC=()=>(typeof act!=='undefined'&&act)||charts[0];
+const initVc=c=>{if(!c._vc){const r=cvr(c);c._vc={clientX:r.left+r.width/2,clientY:r.top+r.height/2}}return c._vc};
+const moveVc=(c,dx,dy)=>{const r=cvr(c),v=initVc(c);v.clientX=Math.max(r.left+2,Math.min(r.right-60,v.clientX+dx));v.clientY=Math.max(r.top+2,Math.min(r.bottom-30,v.clientY+dy));return v};
+const aim=c=>{const v=initVc(c);fire(drOn(c)?c.dpc:(D.elementFromPoint(v.clientX,v.clientY)||cvOf(c)),'mousemove',v)};
+let tp=null;const CAP={capture:true,passive:false};
+D.addEventListener('touchstart',e=>{const c=cf(e.target);if(!c||e.touches.length!==1){if(tp&&tp.tm)clearTimeout(tp.tm);tp=null;return}const t=e.touches[0],dr=drOn(c);
  tp={c,dr,lx:t.clientX,ly:t.clientY,x:t.clientX,y:t.clientY,mv:0,t:Date.now()};
- if(dr){e.preventDefault();if(!c._vc){const r=cvr(c);c._vc={clientX:r.left+r.width/2,clientY:r.top+r.height/2}}fire(c.dpc,'mousemove',c._vc)}},{passive:false});
-D.addEventListener('touchmove',e=>{if(!tp)return;const t=e.touches[0];if(Math.hypot(t.clientX-tp.x,t.clientY-tp.y)>8)tp.mv=1;
- if(tp.dr){e.preventDefault();const c=tp.c,r=cvr(c),v=c._vc;v.clientX=Math.max(r.left+2,Math.min(r.right-60,v.clientX+(t.clientX-tp.lx)));v.clientY=Math.max(r.top+2,Math.min(r.bottom-30,v.clientY+(t.clientY-tp.ly)));tp.lx=t.clientX;tp.ly=t.clientY;fire(c.dpc,'mousemove',v)}},{passive:false});
-D.addEventListener('touchend',e=>{if(!tp)return;const t=e.changedTouches[0],o=tp;tp=null;
- if(o.dr){e.preventDefault();if(!o.mv&&Date.now()-o.t<450){const v=o.c._vc;fire(o.c.dpc,'mousemove',v);fire(o.c.dpc,'mousedown',v);fire(o.c.dpc,'mouseup',v)}}
- else if(!o.mv){const el=D.elementFromPoint(t.clientX,t.clientY);if(el){fire(el,'mousedown',t);fire(el,'mouseup',t)}}},{passive:false});
-setInterval(()=>{const c=charts.find(drOn);if(c&&c._vc){ring.style.display='block';ring.style.left=c._vc.clientX+'px';ring.style.top=c._vc.clientY+'px'}else ring.style.display='none'},60);
+ if(dr){e.preventDefault();e.stopImmediatePropagation();initVc(c);aim(c);return}
+ /* no drawing tool: does the finger land on an existing drawing? -> drag it (drawing-pro handles mousedown on the chart box) */
+ const ok=cvOf(c).dispatchEvent(new MouseEvent('mousedown',{bubbles:true,cancelable:true,clientX:t.clientX,clientY:t.clientY,button:0,view:window}));
+ if(!ok){tp.hit=1;e.preventDefault();e.stopImmediatePropagation();return}
+ /* long press on empty chart = grab the crosshair and move it */
+ tp.tm=setTimeout(()=>{if(tp&&!tp.mv){tp.xh=1;navigator.vibrate&&navigator.vibrate(12)}},350)},CAP);
+D.addEventListener('touchmove',e=>{if(!tp)return;const t=e.touches[0];if(Math.hypot(t.clientX-tp.x,t.clientY-tp.y)>8){tp.mv=1;clearTimeout(tp.tm)}
+ if(tp.hit){e.preventDefault();e.stopImmediatePropagation();fire(cvOf(tp.c),'mousemove',t);return}
+ if(tp.dr||tp.xh){e.preventDefault();e.stopImmediatePropagation();const v=moveVc(tp.c,t.clientX-tp.lx,t.clientY-tp.ly);tp.lx=t.clientX;tp.ly=t.clientY;aim(tp.c)}},CAP);
+D.addEventListener('touchend',e=>{if(!tp)return;const t=e.changedTouches[0],o=tp;tp=null;clearTimeout(o.tm);
+ if(o.hit){e.preventDefault();e.stopImmediatePropagation();fire(cvOf(o.c),'mouseup',t);return}
+ if(o.xh){e.preventDefault();e.stopImmediatePropagation();return}
+ if(o.dr){e.preventDefault();e.stopImmediatePropagation();if(!o.mv&&Date.now()-o.t<450){const v=initVc(o.c);fire(o.c.dpc,'mousemove',v);fire(o.c.dpc,'mousedown',v);fire(o.c.dpc,'mouseup',v)}}},CAP);
+/* the crosshair ring is ALWAYS visible on phones */
+setInterval(()=>{if(!mob()){ring.style.display='none';return}const c=curC();if(!c||!c.host||!cvOf(c)){ring.style.display='none';return}
+ const v=moveVc(c,0,0);ring.style.display='block';ring.style.left=v.clientX+'px';ring.style.top=v.clientY+'px';if(!tp)aim(c)},250);
 })();
