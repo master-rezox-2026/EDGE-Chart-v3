@@ -17,7 +17,7 @@ const css=D.createElement('style');css.textContent=`
 .up2{color:#26a69a}.dn2{color:#ef5350}
 #dpfav,#ltb{--g:1}#ltb::before{content:'⋮⋮';display:block;text-align:center;color:#6a6f7d;font-size:11px;cursor:move;padding:2px 0;flex:none;letter-spacing:-2px;transform:rotate(90deg)}
 #ltb.tvmv{position:fixed!important;z-index:130;height:auto!important;max-height:92vh;border:1px solid #363a45;border-radius:8px;box-shadow:0 6px 20px #0009}
-#dpfav{cursor:move}.tvfp{position:absolute;left:0;top:0;z-index:5;pointer-events:none}
+.tvfp{position:absolute;left:0;top:0;z-index:5;pointer-events:none}
 `;D.head.appendChild(css);
 
 /* ================= 1. Replay: pick the cut candle ================= */
@@ -46,6 +46,7 @@ async function perps(){if(PL&&Date.now()-PT<60000)return PL;
  const[t,i]=await Promise.all([jget('https://fapi.binance.com/fapi/v1/ticker/24hr'),jget('https://fapi.binance.com/fapi/v1/exchangeInfo')]);
  const ok=new Set((i.symbols||[]).filter(x=>x.contractType==='PERPETUAL'&&x.quoteAsset==='USDT'&&x.status==='TRADING').map(x=>x.symbol));
  PL=t.filter(x=>ok.size?ok.has(x.symbol):x.symbol.endsWith('USDT')).map(x=>({s:'BF:'+x.symbol,n:x.symbol+'.P',p:+x.lastPrice,c:+x.priceChangePercent,v:+x.quoteVolume})).sort((a,b)=>b.v-a.v);PT=Date.now();return PL}
+window.tvPerps=perps;
 const fm=v=>v>=1e9?(v/1e9).toFixed(2)+'B':v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?(v/1e3).toFixed(0)+'K':String(v|0);
 const fp2=p=>p>=1000?p.toFixed(2):p>=1?p.toFixed(4):p.toPrecision(4);
 async function picker(){let tab='perp',data=[];
@@ -80,7 +81,7 @@ function mv(id,hit){const el=$('#'+id);if(!el||el._mv)return;el._mv=1;
   const up=()=>{D.removeEventListener('mousemove',mm);D.removeEventListener('mouseup',up);save()};D.addEventListener('mousemove',mm);D.addEventListener('mouseup',up)});
  el.addEventListener('dblclick',e=>{if(!hit(e))return;delete V.pos[id];el.classList.remove('tvmv');el.style.cssText=id==='dpfav'?'':'';save();dispatchEvent(new Event('resize'))})}
 const grab=id=>e=>e.target.id===id;
-setInterval(()=>{mv('ltb',e=>e.target.id==='ltb'||e.target.classList.contains('sep')||e.offsetY<14&&e.target.id==='ltb');mv('dpfav',grab('dpfav'))},800);
+setInterval(()=>{mv('ltb',e=>e.target.id==='ltb'||e.target.classList.contains('sep')||e.offsetY<14&&e.target.id==='ltb');mv('dpfav',e=>!!(e.target.closest&&e.target.closest('.dpgrip')))},800);
 
 /* ================= 5. Footprint ================= */
 const nice=r=>{const e=Math.pow(10,Math.floor(Math.log10(r))),f=r/e;return(f<1.5?1:f<3.5?2:f<7.5?5:10)*e};

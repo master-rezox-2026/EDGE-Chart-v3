@@ -361,6 +361,7 @@ css.textContent=`#ltb{width:50px!important;padding:6px 0!important;gap:1px!impor
 #dpft button{background:none;border:0;color:#b2b5be;cursor:pointer;width:26px;height:26px;border-radius:4px;font-size:14px}#dpft button:hover{background:#2a2e39;color:#fff}#dpft .sp{width:1px;height:18px;background:#363a45;margin:0 2px}
 #dpfav{position:fixed;z-index:120;top:52px;left:50%;transform:translateX(-50%);display:flex;gap:2px;background:#1e222d;border:1px solid #363a45;border-radius:6px;padding:3px;box-shadow:0 3px 12px rgba(0,0,0,.4);max-width:70vw;overflow-x:auto}
 #dpfav button{background:none;border:0;color:#b2b5be;width:30px;height:28px;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto}#dpfav button:hover{background:#2a2e39;color:#fff}#dpfav button.act{background:#2962ff;color:#fff}
+.dpgrip{display:flex;align-items:center;justify-content:center;width:16px;flex:0 0 auto;cursor:grab;color:#6b7080;border-radius:4px}.dpgrip:hover{color:#fff;background:#2a2e39}.dpgrip:active{cursor:grabbing}
 #dpset,#dpask{position:fixed;z-index:420;background:#1e222d;border:1px solid #363a45;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,.6);font:13px system-ui;color:#d1d4dc;display:none}
 #dpset{right:70px;top:70px;width:380px;max-height:calc(100vh - 100px);flex-direction:column}#dpset.on{display:flex}
 #dpset .hd{display:flex;align-items:center;padding:12px 14px;font-weight:600;font-size:15px;cursor:move}#dpset .hd span{flex:1}#dpset .hd b{cursor:pointer;color:#787b86;font-size:18px;font-weight:400}
@@ -521,7 +522,7 @@ function refreshBar(){if(!ltb)return;const T=TD[tool]||{};
  if(GB.star){GB.star.innerHTML=`<span>${svg('star')}</span>`;GB.star.classList.toggle('act',!!O.favBar)}
  buildFav()}
 function buildFav(){let f=$('#dpfav');if(!O.favBar||!O.fav.length){if(f)f.style.display='none';return}if(!f){f=D.createElement('div');f.id='dpfav';D.body.appendChild(f);f.onclick=e=>{const b=e.target.closest('button');if(b){const id=b.dataset.t;setTool(tool===id?'cur':id)}}}
- f.style.display='flex';f.innerHTML=O.fav.filter(id=>TD[id]).map(id=>`<button data-t="${id}" title="${TD[id].n}" class="${tool===id?'act':''}">${svg(id,20)}</button>`).join('')}
+ f.style.display='flex';f.innerHTML='<span class="dpgrip" title="Drag to move · double-click to reset"><svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor"><circle cx="2.5" cy="3" r="1.5"/><circle cx="7.5" cy="3" r="1.5"/><circle cx="2.5" cy="8" r="1.5"/><circle cx="7.5" cy="8" r="1.5"/><circle cx="2.5" cy="13" r="1.5"/><circle cx="7.5" cy="13" r="1.5"/></svg></span>'+O.fav.filter(id=>TD[id]).map(id=>`<button data-t="${id}" title="${TD[id].n}" class="${tool===id?'act':''}">${svg(id,20)}</button>`).join('')}
 
 /* ---------- fly-out ---------- */
 let fly=null;
