@@ -362,16 +362,25 @@ css.textContent=`#ltb{width:50px!important;padding:6px 0!important;gap:1px!impor
 #dpfav{position:fixed;z-index:120;top:52px;left:50%;transform:translateX(-50%);display:flex;gap:2px;background:#1e222d;border:1px solid #363a45;border-radius:6px;padding:3px;box-shadow:0 3px 12px rgba(0,0,0,.4);max-width:70vw;overflow-x:auto}
 #dpfav button{background:none;border:0;color:#b2b5be;width:30px;height:28px;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto}#dpfav button:hover{background:#2a2e39;color:#fff}#dpfav button.act{background:#2962ff;color:#fff}
 .dpgrip{display:flex;align-items:center;justify-content:center;width:16px;flex:0 0 auto;cursor:grab;color:#6b7080;border-radius:4px}.dpgrip:hover{color:#fff;background:#2a2e39}.dpgrip:active{cursor:grabbing}
-#dpset,#dpask{position:fixed;z-index:420;background:#1e222d;border:1px solid #363a45;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,.6);font:13px system-ui;color:#d1d4dc;display:none}
-#dpset{right:70px;top:70px;width:380px;max-height:calc(100vh - 100px);flex-direction:column}#dpset.on{display:flex}
-#dpset .hd{display:flex;align-items:center;padding:12px 14px;font-weight:600;font-size:15px;cursor:move}#dpset .hd span{flex:1}#dpset .hd b{cursor:pointer;color:#787b86;font-size:18px;font-weight:400}
-#dpset .tb{display:flex;gap:2px;padding:0 10px;border-bottom:1px solid #363a45;overflow-x:auto}#dpset .tb div{padding:7px 10px;cursor:pointer;color:#787b86;border-bottom:2px solid transparent;white-space:nowrap}#dpset .tb div.on{color:#fff;border-color:#2962ff}
-#dpset .bd{padding:10px 14px;overflow-y:auto;flex:1}#dpset .ft{display:flex;justify-content:space-between;padding:10px 14px;border-top:1px solid #363a45}
-#dpset label.r{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:6px 0}#dpset label.r>span{flex:1;color:#b2b5be}
-#dpset input[type=number],#dpset input[type=text],#dpset select,#dpset textarea,#dpset input[type=datetime-local]{background:#131722;color:#d1d4dc;border:1px solid #363a45;border-radius:4px;padding:4px 6px;font:12px system-ui;width:150px}
-#dpset textarea{width:100%;min-height:70px;resize:vertical;box-sizing:border-box}#dpset input[type=color]{width:34px;height:26px;padding:0;border:1px solid #363a45;background:none;border-radius:4px}
-#dpset .lv{display:flex;align-items:center;gap:8px;margin:4px 0}#dpset .lv input[type=number]{width:80px}
-#dpset button,#dpask button{background:#2a2e39;color:#d1d4dc;border:1px solid #363a45;border-radius:5px;padding:6px 14px;cursor:pointer;font:13px system-ui}#dpset button:hover,#dpask button:hover{background:#363a45}#dpset button.pr,#dpask button.pr{background:#2962ff;border-color:#2962ff;color:#fff}
+#dpset,#dpask{position:fixed;z-index:420;background:#141414;border:1px solid #2a2a2a;border-radius:12px;box-shadow:0 14px 50px rgba(0,0,0,.75);font:14px system-ui;color:#d1d4dc;display:none}
+#dpset{left:0;top:0;width:392px;max-width:94vw;max-height:calc(100vh - 30px);flex-direction:column}#dpset.on{display:flex}
+#dpset .dph{display:flex;align-items:center;padding:22px 24px 4px;font-weight:600;font-size:21px;color:#fff;cursor:move;position:static;height:auto}#dpset .dph span{flex:1}#dpset .dph b{cursor:pointer;color:#9aa0b0;font-size:22px;font-weight:400;line-height:1}#dpset .dph b:hover{color:#fff}
+#dpset .dptb{display:flex;margin:12px 24px 0;border-bottom:2px solid #2a2a2a;overflow-x:auto}#dpset .dptb div{padding:6px 2px 10px;margin:0 22px -2px 0;cursor:pointer;color:#8b91a3;font-weight:600;font-size:15px;border-bottom:2px solid transparent;white-space:nowrap}#dpset .dptb div:hover{color:#d1d4dc}#dpset .dptb div.on{color:#fff;border-color:#fff}
+#dpset .dpbd{padding:10px 24px 14px;overflow-y:auto;flex:1}
+#dpset label.r{display:grid;grid-template-columns:120px 1fr;align-items:center;gap:12px;margin:14px 0}#dpset label.r>span{color:#d1d4dc}
+#dpset label.r:has(input[type=checkbox]){grid-template-columns:22px 1fr}#dpset label.r input[type=checkbox]{order:-1}
+#dpset input[type=number],#dpset input[type=text],#dpset select,#dpset input[type=datetime-local]{height:38px;background:#141414;color:#d1d4dc;border:1px solid #363a45;border-radius:8px;padding:0 12px;font:14px system-ui;width:100%;box-sizing:border-box}
+#dpset select{appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none' stroke='%239aa0b0' stroke-width='1.6'><path d='M1 1l5 5 5-5'/></svg>");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+#dpset input:focus,#dpset select:focus,#dpset textarea:focus{outline:0;border-color:#2962ff}
+#dpset textarea{width:100%;min-height:90px;resize:vertical;box-sizing:border-box;background:#141414;color:#d1d4dc;border:1px solid #363a45;border-radius:8px;padding:10px 12px;font:14px system-ui}
+#dpset input[type=color]{width:46px;height:38px;padding:3px;border:1px solid #363a45;background:#141414;border-radius:8px;justify-self:start;cursor:pointer}
+#dpset input[type=checkbox]{appearance:none;width:20px;height:20px;border:2px solid #5a5f6e;border-radius:5px;background:transparent;cursor:pointer;margin:0}
+#dpset input[type=checkbox]:checked{background:#fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='10' fill='none' stroke='%23141414' stroke-width='2.2'><path d='M1 5l3.5 3.5L11 1.5'/></svg>") center no-repeat;border-color:#fff}
+#dpset .lv{display:flex;align-items:center;gap:10px;margin:8px 0}#dpset .lv input[type=number]{width:100px}
+#dpset .dpf{display:flex;align-items:center;gap:10px;padding:16px 24px;border-top:1px solid #2a2a2a;position:relative}
+#dpset button,#dpask button{background:transparent;color:#d1d4dc;border:1px solid #363a45;border-radius:8px;padding:9px 16px;cursor:pointer;font:14px system-ui}#dpset button:hover,#dpask button:hover{background:#242833}
+#dpset button.cn{border-color:#fff;color:#fff}#dpset button.pr,#dpask button.pr{background:#fff;border-color:#fff;color:#111;font-weight:600}#dpset button.pr:hover{background:#e0e0e0}
+#dpset .tmenu{position:absolute;left:24px;bottom:62px;display:none;background:#1e1e1e;border:1px solid #2a2a2a;border-radius:8px;padding:6px 0;min-width:170px;box-shadow:0 8px 24px #000a}#dpset .tmenu.on{display:block}#dpset .tmenu div{padding:9px 16px;cursor:pointer}#dpset .tmenu div:hover{background:#2a2e39}
 #dpask{left:50%;top:30%;transform:translateX(-50%);width:340px;padding:14px}#dpask.on{display:block}#dpask textarea{width:100%;min-height:80px;box-sizing:border-box;background:#131722;color:#d1d4dc;border:1px solid #363a45;border-radius:4px;padding:6px;font:13px system-ui;margin:8px 0}
 #dpctx{position:fixed;z-index:430;background:#1e222d;border:1px solid #363a45;border-radius:6px;padding:4px 0;font:13px system-ui;color:#d1d4dc;display:none;min-width:170px;box-shadow:0 6px 24px rgba(0,0,0,.5)}#dpctx div{padding:6px 14px;cursor:pointer}#dpctx div:hover{background:#2a2e39}
 ${PERP_ONLY?'#tc,#e_fut,#e_mt5{display:none!important}':''}`;
@@ -616,15 +625,18 @@ const fld=(o,f)=>{const v=o[f.key],id=`data-k="${f.key}" data-ty="${f.ty}"`;let 
  else if(f.ty==='txt')return`<div style="margin:6px 0"><div style="color:#b2b5be;margin-bottom:4px">${f.lb}</div><textarea ${id}>${String(v==null?'':v).replace(/</g,'&lt;')}</textarea></div>`;
  return`<label class="r"><span>${f.lb}</span>${inp}</label>`};
 function setBody(){const o=setO,sp=spec(o),tabs=['Style','Text'];if(o.lv)tabs.splice(1,0,'Levels');if(o.p.length<=12)tabs.push('Coordinates');tabs.push('Visibility');if(!tabs.includes(setTab))setTab='Style';
- const P=$('#dpset');P.querySelector('.hd span').textContent=(TD[o.k]||{}).n||o.k;P.querySelector('.tb').innerHTML=tabs.map(t=>`<div class="${t===setTab?'on':''}" data-tab="${t}">${t}</div>`).join('');let h='';
+ const P=$('#dpset');P.querySelector('.dph span').textContent=(TD[o.k]||{}).n||o.k;P.querySelector('.dptb').innerHTML=tabs.map(t=>`<div class="${t===setTab?'on':''}" data-tab="${t}">${t}</div>`).join('');let h='';
  if(setTab==='Style'||setTab==='Text')h=sp[setTab].map(f=>fld(o,f)).join('');
  else if(setTab==='Levels')h=(o.lv||[]).map((l,i)=>`<div class="lv"><input type="checkbox" data-li="${i}" data-lf="on" ${l.on?'checked':''}><input type="number" step="any" data-li="${i}" data-lf="v" value="${l.v}"><input type="color" data-li="${i}" data-lf="c" value="${/^#[0-9a-f]{6}$/i.test(l.c)?l.c:'#808080'}"></div>`).join('')+`<div style="color:#787b86;margin-top:6px;font-size:11px">Tick to show a level, edit the value, pick its color.</div>`;
  else if(setTab==='Coordinates')h=o.p.map((q,i)=>`<div style="margin:8px 0"><div style="color:#b2b5be;margin-bottom:4px">Point ${i+1}</div><div style="display:flex;gap:6px"><input type="datetime-local" step="1" data-ci="${i}" data-cf="t" value="${toLoc(q.t)}" style="flex:1"><input type="number" step="any" data-ci="${i}" data-cf="p" value="${q.p}" style="width:110px"></div></div>`).join('');
  else if(setTab==='Visibility')h=['Minutes','Hours','Days','Weeks / Months'].map((n,i)=>`<label class="r"><span>${n}</span><input type="checkbox" data-vi="${i}" ${(o.vis&&o.vis[i]===0)?'':'checked'}></label>`).join('')+`<div style="color:#787b86;margin-top:6px;font-size:11px">Choose the timeframe groups where this drawing is shown.</div>`;
- P.querySelector('.bd').innerHTML=h;const l=P.querySelector('.lock');if(l)l.textContent=o.lk?'Unlock':'Lock'}
-function openSet(o,c,tab){setO=o;setC=c||actChart();setTab=tab||'Style';let P=$('#dpset');if(!P){P=D.createElement('div');P.id='dpset';P.innerHTML='<div class="hd"><span></span><b data-x="1">×</b></div><div class="tb"></div><div class="bd"></div><div class="ft"><div style="display:flex;gap:8px"><button data-a="del">Delete</button><button data-a="clone">Clone</button><button class="lock" data-a="lock">Lock</button></div><button class="pr" data-a="ok">OK</button></div>';D.body.appendChild(P);
-  P.onclick=e=>{const t=e.target;if(t.dataset.x||t.dataset.a==='ok'){closeSet();return}if(t.dataset.tab){setTab=t.dataset.tab;setBody();return}
-   if(t.dataset.a==='del'){delSel();return}if(t.dataset.a==='clone'){clone(setO,setC);return}if(t.dataset.a==='lock'){setO.lk=setO.lk?0:1;setBody();save()}};
+ P.querySelector('.dpbd').innerHTML=h;const l=P.querySelector('.lock');if(l)l.textContent=o.lk?'Unlock':'Lock'}
+let setSnap=null;
+function openSet(o,c,tab){setO=o;setSnap=JSON.stringify(o);setC=c||actChart();setTab=tab||'Style';let P=$('#dpset');if(!P){P=D.createElement('div');P.id='dpset';P.innerHTML='<div class="dph"><span></span><b data-x="1">✕</b></div><div class="dptb"></div><div class="dpbd"></div><div class="dpf"><button data-a="tpl">Template ⌄</button><div class="tmenu"><div data-a="def">Save as default</div><div data-a="clone">Clone</div><div data-a="lock" class="lock">Lock</div><div data-a="del">Delete</div></div><span style="flex:1"></span><button class="cn" data-a="cancel">Cancel</button><button class="pr" data-a="ok">Ok</button></div>';D.body.appendChild(P);
+  P.onclick=e=>{const t=e.target,a=t.dataset.a,tm=P.querySelector('.tmenu');if(a==='tpl'){tm.classList.toggle('on');return}tm.classList.remove('on');
+   if(t.dataset.x||a==='cancel'){if(a==='cancel'&&setSnap&&setO){const s=JSON.parse(setSnap);Object.keys(setO).forEach(k=>delete setO[k]);Object.assign(setO,s);save()}closeSet();return}
+   if(a==='ok'){closeSet();return}if(t.dataset.tab){setTab=t.dataset.tab;setBody();return}
+   if(a==='def'){touchDef(setO);return}if(a==='del'){delSel();return}if(a==='clone'){clone(setO,setC);return}if(a==='lock'){setO.lk=setO.lk?0:1;setBody();save()}};
   const ap=e=>{const t=e.target,o2=setO;if(!o2)return;
    if(t.dataset.k){const f=t.dataset.k,ty=t.dataset.ty;o2[f]=ty==='chk'?+t.checked:ty==='num'?(Number.isFinite(parseFloat(t.value))?parseFloat(t.value):o2[f]):ty==='sel'?(isNaN(+t.value)?t.value:+t.value):t.value;
     if(['w','ls','col','fill','fo','tc','fs','b','i'].includes(f))touchDef(o2);if(f==='rows'||f==='cols'){}}
@@ -633,8 +645,8 @@ function openSet(o,c,tab){setO=o;setC=c||actChart();setTab=tab||'Style';let P=$(
    else if(t.dataset.vi!=null){o2.vis=o2.vis||[1,1,1,1];o2.vis[+t.dataset.vi]=+t.checked}
    save();if(ft&&ft.dataset.id===o2.id)ft.dataset.id=''};
   P.oninput=ap;P.onchange=ap;P.addEventListener('keydown',e=>e.stopPropagation());
-  const hd=P.querySelector('.hd');hd.onmousedown=e=>{if(e.target.dataset.x)return;const r=P.getBoundingClientRect(),dx=e.clientX-r.left,dy=e.clientY-r.top,mv=ev=>{P.style.left=(ev.clientX-dx)+'px';P.style.top=(ev.clientY-dy)+'px';P.style.right='auto'},up=()=>{D.removeEventListener('mousemove',mv);D.removeEventListener('mouseup',up)};D.addEventListener('mousemove',mv);D.addEventListener('mouseup',up)}}
- P.classList.add('on');setBody()}
+  const hd=P.querySelector('.dph');hd.onmousedown=e=>{if(e.target.dataset.x)return;const r=P.getBoundingClientRect(),dx=e.clientX-r.left,dy=e.clientY-r.top,mv=ev=>{P.style.left=(ev.clientX-dx)+'px';P.style.top=(ev.clientY-dy)+'px';P.style.right='auto';P._pos=1},up=()=>{D.removeEventListener('mousemove',mv);D.removeEventListener('mouseup',up)};D.addEventListener('mousemove',mv);D.addEventListener('mouseup',up)}}
+ P.classList.add('on');setBody();if(!P._pos){P.style.left=Math.max(10,(innerWidth-P.offsetWidth)/2)+'px';P.style.top=Math.max(10,(innerHeight-P.offsetHeight)/2-20)+'px'}}
 function closeSet(){const P=$('#dpset');if(P)P.classList.remove('on');setO=null}
 
 /* ---------- keyboard ---------- */
