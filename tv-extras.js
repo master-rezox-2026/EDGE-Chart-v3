@@ -135,9 +135,10 @@ window.tvSettings=settings;
 /* ---------- session breaks: vertical line at every daily open (chart time zone) ---------- */
 function sessDraw(c){const cv=c.host&&c.host.querySelector('.cv');if(!cv||!c.c||!c.s)return;let k=c._sk;
  if(!k||!k.isConnected){k=c._sk=D.createElement('canvas');k.className='tvsess';k.style.cssText='position:absolute;left:0;top:0;pointer-events:none;z-index:3';cv.style.position='relative';cv.appendChild(k);c._skk=null}
+ if(!c._sub){c._sub=1;c.c.timeScale().subscribeVisibleLogicalRangeChange(()=>{try{sessDraw(c)}catch(e){}});try{c.c.timeScale().subscribeSizeChange(()=>{try{sessDraw(c)}catch(e){}})}catch(e){}}
  const ts=c.c.timeScale(),vr=ts.getVisibleLogicalRange(),a=c.view(),w=cv.clientWidth,h=cv.clientHeight;
- const key=[w,h,vr&&vr.from.toFixed(2),vr&&vr.to.toFixed(2),a.length,V.sess,V.sessC,V.sessS,V.sessH,V.sessW,V.sessZ,S.tz,c.tfm].join();if(key===c._skk)return;c._skk=key;
- const dpr=devicePixelRatio||1;k.width=w*dpr;k.height=h*dpr;k.style.width=w+'px';k.style.height=h+'px';const g=k.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);
+ const key=[w,h,vr&&vr.from.toFixed(4),vr&&vr.to.toFixed(4),a.length,V.sess,V.sessC,V.sessS,V.sessH,V.sessW,V.sessZ,S.tz,c.tfm].join();if(key===c._skk)return;c._skk=key;
+ const dpr=devicePixelRatio||1;const g=k.getContext('2d');if(k.width!==Math.round(w*dpr)||k.height!==Math.round(h*dpr)){k.width=Math.round(w*dpr);k.height=Math.round(h*dpr);k.style.width=w+'px';k.style.height=h+'px'}g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,w,h);
  if(!V.sess||!vr||(c.tfm||1)>=1440||a.length<2)return;
  const ck=V.sessZ+'|'+(S.tz||'')+'|'+V.sessH;if(c._dkk!==ck){c._dkc=new Map();c._dkk=ck}
  let fmt;try{fmt=new Intl.DateTimeFormat('en-CA',{timeZone:V.sessZ==='chart'?(S.tz||undefined):'UTC',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',hourCycle:'h23'})}catch(e){fmt=new Intl.DateTimeFormat('en-CA',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',hourCycle:'h23'})}
@@ -145,7 +146,7 @@ function sessDraw(c){const cv=c.host&&c.host.querySelector('.cv');if(!cv||!c.c||
  g.strokeStyle=V.sessC;g.lineWidth=+V.sessW||1;g.setLineDash(V.sessS==='solid'?[]:V.sessS==='dotted'?[1.5,3]:[5,4]);
  const i0=Math.max(1,Math.floor(vr.from)-1),i1=Math.min(a.length-1,Math.ceil(vr.to)+1);
  for(let i=i0;i<=i1;i++){if(dk(a[i].time)===dk(a[i-1].time))continue;const x=ts.logicalToCoordinate(i);if(x==null)continue;g.beginPath();g.moveTo(Math.round(x)+.5,0);g.lineTo(Math.round(x)+.5,h);g.stroke()}}
-setInterval(()=>charts.forEach(c=>{try{sessDraw(c)}catch(e){}}),150);
+(function sessLoop(){charts.forEach(c=>{try{sessDraw(c)}catch(e){}});requestAnimationFrame(sessLoop)})();
 
 /* ---------- hooks ---------- */
 const wrap=(n,fn)=>{const o=Ch.prototype[n];Ch.prototype[n]=function(...a){const r=o.apply(this,a);try{fn.call(this)}catch(e){console.warn('tv-extras',e)}return r}};
