@@ -5,7 +5,7 @@
 if(typeof S==='undefined'||typeof Ch==='undefined'||typeof charts==='undefined')return;
 const D=document,$=s=>D.querySelector(s);
 const DEF={up:'#26a69a',dn:'#ef5350',bUp:'#26a69a',bDn:'#ef5350',wUp:'#26a69a',wDn:'#ef5350',body:1,border:1,wick:1,
- bg:'#131722',gv:1,gh:1,gc:'#1a1f2c',xc:'#758696',tx:'#8b91a3',fs:12,mt:5,mb:8,ro:10,cd:1,vol:1,val:1,title:1,sb:'hover',mg:6};
+ bg:'#131722',gv:1,gh:1,gc:'#1a1f2c',xc:'#758696',tx:'#8b91a3',fs:12,mt:5,mb:8,ro:10,cd:1,vol:1,val:1,title:1,sb:'hover',mg:6,sess:1,sessC:'#5b7fb5',sessS:'dashed',sessH:0,sessZ:'utc',sessW:1};
 const V=S.tv=Object.assign({},DEF,S.tv||{});
 if(!V.m2){V.border=1;V.m2=1}
 const LIGHT={bg:'#dcdcdc',gv:0,gh:0,xc:'#000000',tx:'#000000',up:'#ffffff',dn:'#000000',bUp:'#000000',bDn:'#000000',wUp:'#000000',wDn:'#000000',border:1};
@@ -52,7 +52,7 @@ function ap(c){if(!c.c||!c.s)return;try{
 }catch(e){console.warn('tv-extras',e)}}
 const lumOf=h=>{h=String(h||'#000').replace('#','');if(h.length===3)h=h.replace(/./g,'$&$&');const n=parseInt(h,16)||0;return(.299*(n>>16&255)+.587*(n>>8&255)+.114*(n&255))/255};
 function hdTheme(){const L=lumOf(V.bg)>.55,st=D.body.style;st.setProperty('--hdfg',L?'#000000':'#e6e8ee');st.setProperty('--hdfg2',L?'#333333':'#9aa0b0');st.setProperty('--hdhv',L?'rgba(0,0,0,.08)':'rgba(255,255,255,.1)')}
-function applyAll(){hdTheme();
+function applyAll(){hdTheme();charts.forEach(c=>{c._skk=null});
  S.set=S.set||{};S.set.showCountdown=V.cd?1:0;if(S.edge)S.edge.vol=+V.vol;
  D.body.classList.toggle('tvnt',!V.title);
  D.body.classList.remove('tvsb-always','tvsb-hidden');if(V.sb==='always')D.body.classList.add('tvsb-always');if(V.sb==='hidden')D.body.classList.add('tvsb-hidden');
@@ -109,7 +109,8 @@ const TABS={
  'Status line':[['k','Symbol & timeframe title','title'],['k','Chart values (OHLC)','val'],['k','Volume bars','vol']],
  'Scales and lines':[['h','PRICE SCALE'],['s','Scale modes (A and L)','sb',[['hover','Visible on mouse over'],['always','Always visible'],['hidden','Hidden']]],['k','Countdown to bar close','cd'],['h','MAGNET'],['n','Weak magnet range (px)  – 2 = very weak, 40 = strong','mg',2,60]],
  'Canvas':[['h','CHART BASIC STYLES'],['c','Background','bg'],['k','Vertical grid lines','gv'],['k','Horizontal grid lines','gh'],['c','Grid color','gc'],['c','Crosshair','xc'],
-  ['h','SCALES'],['c','Text color','tx'],['n','Text size','fs',8,24],['h','MARGINS'],['n','Top %','mt',0,40],['n','Bottom %','mb',0,40],['n','Right (bars)','ro',0,100],['p','Preset: light gray canvas (screenshot look)']]};
+  ['h','SCALES'],['c','Text color','tx'],['n','Text size','fs',8,24],['h','MARGINS'],['n','Top %','mt',0,40],['n','Bottom %','mb',0,40],['n','Right (bars)','ro',0,100],['p','Preset: light gray canvas (screenshot look)']],
+ 'Events':[['h','SESSION BREAKS'],['k','Session breaks (vertical line at daily open)','sess'],['c','Line color','sessC'],['s','Line style','sessS',[['dashed','Dashed'],['solid','Solid'],['dotted','Dotted']]],['s','Day starts by','sessZ',[['utc','UTC midnight (crypto daily open = 05:30 Sri Lanka)'],['chart','Chart time zone midnight']]],['n','Day starts at (hour after midnight)','sessH',0,23],['n','Line thickness','sessW',1,4]]};
 function settings(){const snap=JSON.stringify(V);let tab='Symbol';
  const m=modal('Settings',`<div class=bd><div class=nv></div><div class=ct></div></div>`,`<div class=ft><button data-c>Cancel</button><button class=ok data-o>Ok</button></div>`);
  const nv=m.querySelector('.nv'),ct=m.querySelector('.ct');
@@ -130,6 +131,21 @@ function settings(){const snap=JSON.stringify(V);let tab='Symbol';
  m.querySelector('[data-c]').onclick=()=>{Object.keys(V).forEach(k=>delete V[k]);Object.assign(V,JSON.parse(snap));applyAll();reRender();m.remove()};
  m.querySelector('[data-o]').onclick=()=>{save();m.remove()}}
 window.tvSettings=settings;
+
+/* ---------- session breaks: vertical line at every daily open (chart time zone) ---------- */
+function sessDraw(c){const cv=c.host&&c.host.querySelector('.cv');if(!cv||!c.c||!c.s)return;let k=c._sk;
+ if(!k||!k.isConnected){k=c._sk=D.createElement('canvas');k.className='tvsess';k.style.cssText='position:absolute;left:0;top:0;pointer-events:none;z-index:3';cv.style.position='relative';cv.appendChild(k);c._skk=null}
+ const ts=c.c.timeScale(),vr=ts.getVisibleLogicalRange(),a=c.view(),w=cv.clientWidth,h=cv.clientHeight;
+ const key=[w,h,vr&&vr.from.toFixed(2),vr&&vr.to.toFixed(2),a.length,V.sess,V.sessC,V.sessS,V.sessH,V.sessW,V.sessZ,S.tz,c.tfm].join();if(key===c._skk)return;c._skk=key;
+ const dpr=devicePixelRatio||1;k.width=w*dpr;k.height=h*dpr;k.style.width=w+'px';k.style.height=h+'px';const g=k.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);
+ if(!V.sess||!vr||(c.tfm||1)>=1440||a.length<2)return;
+ const ck=V.sessZ+'|'+(S.tz||'')+'|'+V.sessH;if(c._dkk!==ck){c._dkc=new Map();c._dkk=ck}
+ let fmt;try{fmt=new Intl.DateTimeFormat('en-CA',{timeZone:V.sessZ==='chart'?(S.tz||undefined):'UTC',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',hourCycle:'h23'})}catch(e){fmt=new Intl.DateTimeFormat('en-CA',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',hourCycle:'h23'})}
+ const dk=t=>{let v=c._dkc.get(t);if(v!=null)return v;const o={};fmt.formatToParts(new Date(t*1000)).forEach(x=>o[x.type]=x.value);const d=new Date(Date.UTC(+o.year,+o.month-1,+o.day,(+o.hour||0)-(+V.sessH||0)));v=d.getUTCFullYear()*10000+d.getUTCMonth()*100+d.getUTCDate();c._dkc.set(t,v);return v};
+ g.strokeStyle=V.sessC;g.lineWidth=+V.sessW||1;g.setLineDash(V.sessS==='solid'?[]:V.sessS==='dotted'?[1.5,3]:[5,4]);
+ const i0=Math.max(1,Math.floor(vr.from)-1),i1=Math.min(a.length-1,Math.ceil(vr.to)+1);
+ for(let i=i0;i<=i1;i++){if(dk(a[i].time)===dk(a[i-1].time))continue;const x=ts.logicalToCoordinate(i);if(x==null)continue;g.beginPath();g.moveTo(Math.round(x)+.5,0);g.lineTo(Math.round(x)+.5,h);g.stroke()}}
+setInterval(()=>charts.forEach(c=>{try{sessDraw(c)}catch(e){}}),150);
 
 /* ---------- hooks ---------- */
 const wrap=(n,fn)=>{const o=Ch.prototype[n];Ch.prototype[n]=function(...a){const r=o.apply(this,a);try{fn.call(this)}catch(e){console.warn('tv-extras',e)}return r}};
