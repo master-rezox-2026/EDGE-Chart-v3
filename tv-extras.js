@@ -152,6 +152,7 @@ function sessDraw(c){const cv=c.host&&c.host.querySelector('.cv');if(!cv||!c.c||
  for(let i=i0;i<=i1;i++){if(dk(a[i].time)===dk(a[i-1].time))continue;const x=ts.logicalToCoordinate(i);if(x==null)continue;g.beginPath();g.moveTo(Math.round(x)+.5,0);g.lineTo(Math.round(x)+.5,h);g.stroke()}}
 (function sessLoop(){charts.forEach(c=>{try{sessDraw(c)}catch(e){}});requestAnimationFrame(sessLoop)})();
 
+window.tvObjTree=()=>objTree((typeof act!=='undefined'&&act)||charts[0]);
 /* ---------- hooks ---------- */
 const wrap=(n,fn)=>{const o=Ch.prototype[n];Ch.prototype[n]=function(...a){const r=o.apply(this,a);try{fn.call(this)}catch(e){console.warn('tv-extras',e)}return r}};
 wrap('render',function(){addAL(this);ap(this);sync(this)});
