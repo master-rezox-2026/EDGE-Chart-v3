@@ -484,7 +484,13 @@ function one(c){if(!c.c||!c.s||!c.host)return;if(c.dpc&&!c.dpc.isConnected)c.dpc
  {const now=Date.now();trail=trail.filter(q=>now-q.t<900);const tr=trail.filter(q=>q.c===c);if(tr.length){g.lineCap='round';g.lineJoin='round';for(let i=1;i<tr.length;i++){const a=Math.max(0,1-(now-tr[i].t)/900);g.strokeStyle='rgba(255,60,60,'+a+')';g.lineWidth=5*a+1;g.beginPath();g.moveTo(tr[i-1].x,tr[i-1].y);g.lineTo(tr[i].x,tr[i].y);g.stroke()}
    if(AL){const l=tr[tr.length-1];g.fillStyle='rgba(255,60,60,.35)';g.beginPath();g.arc(l.x,l.y,14,0,TAU);g.fill();g.fillStyle='#ff3c3c';g.beginPath();g.arc(l.x,l.y,4,0,TAU);g.fill()}}}
  g.restore()}
-(function frame(){requestAnimationFrame(frame);(typeof charts!=='undefined'?charts:[]).forEach(c=>{try{one(c)}catch(e){if(!frame.e){frame.e=1;console.error('DrawingPro',e)}}})})();
+/* smooth mode: redraw every frame only while you interact; when idle redraw only if the view / price scale / data / drawings changed */
+let ACT=performance.now();['mousemove','mousedown','mouseup','keydown','keyup','wheel','touchstart','touchmove','touchend','input','change','click','dblclick','contextmenu','pointermove'].forEach(ev=>addEventListener(ev,()=>{ACT=performance.now()},{capture:true,passive:true}));
+const SIGS=new WeakMap();
+function sigOf(c){try{const ts=c.c.timeScale(),vr=ts.getVisibleLogicalRange(),a=c.ag||[],l=a.length?a[a.length-1]:null,k=c.dpc;
+ return[k?k.clientWidth:0,k?k.clientHeight:0,devicePixelRatio,vr?vr.from.toFixed(3):'',vr?vr.to.toFixed(3):'',l?c.s.priceToCoordinate(l.close):'',l?c.s.priceToCoordinate(l.close*1.02):'',a.length,l?l.close:'',tool,curStyle,pts.length,sel?sel.id:'',drag?1:0,hist.length,!!k,drOn(),O.lock,O.hid.dr,O.hid.ind,O.hid.pos,(S.dp[c.cfg.sym]||[]).length,c.cfg.log?1:0,c.style,c.rp,S.tz].join('|')}catch(e){return Math.random()}}
+(function frame(){requestAnimationFrame(frame);if(document.hidden)return;const act=performance.now()-ACT<600;
+ (typeof charts!=='undefined'?charts:[]).forEach(c=>{try{if(!act){const s=sigOf(c);if(SIGS.get(c)===s)return;SIGS.set(c,s)}one(c)}catch(e){if(!frame.e){frame.e=1;console.error('DrawingPro',e)}}})})();
 
 /* ---------- create / modify ---------- */
 function extra(k){const o={};if(LVT[k])o.lv=mkLv(k);

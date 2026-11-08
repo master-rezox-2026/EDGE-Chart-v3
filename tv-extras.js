@@ -150,7 +150,7 @@ function sessDraw(c){const cv=c.host&&c.host.querySelector('.cv');if(!cv||!c.c||
  g.strokeStyle=V.sessC;g.lineWidth=+V.sessW||1;g.setLineDash(V.sessS==='solid'?[]:V.sessS==='dotted'?[1.5,3]:[5,4]);
  const i0=Math.max(1,Math.floor(vr.from)-1),i1=Math.min(a.length-1,Math.ceil(vr.to)+1);
  for(let i=i0;i<=i1;i++){if(dk(a[i].time)===dk(a[i-1].time))continue;const x=ts.logicalToCoordinate(i);if(x==null)continue;g.beginPath();g.moveTo(Math.round(x)+.5,0);g.lineTo(Math.round(x)+.5,h);g.stroke()}}
-(function sessLoop(){charts.forEach(c=>{try{sessDraw(c)}catch(e){}});requestAnimationFrame(sessLoop)})();
+(function sessLoop(){if(!document.hidden)charts.forEach(c=>{try{sessDraw(c)}catch(e){}});requestAnimationFrame(sessLoop)})();
 
 window.tvObjTree=()=>objTree((typeof act!=='undefined'&&act)||charts[0]);
 /* ---------- hooks ---------- */

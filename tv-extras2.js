@@ -92,10 +92,12 @@ setInterval(()=>{mv('ltb',e=>e.target.id==='ltb'||e.target.classList.contains('s
 const nice=r=>{const e=Math.pow(10,Math.floor(Math.log10(r))),f=r/e;return(f<1.5?1:f<3.5?2:f<7.5?5:10)*e};
 const fq=v=>v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?(v/1e3).toFixed(1)+'K':v>=100?v.toFixed(0):v>=1?v.toFixed(1):v.toFixed(2);
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-const FP={gate:0,pause:0,MAXP:40,MAXPG:20,GAP:550};
-const gate=async()=>{const n=Date.now(),t=Math.max(n,FP.gate,FP.pause);FP.gate=t+FP.GAP;if(t>n)await sleep(t-n)};
-async function fpGet(u){for(let i=0;i<3;i++){await gate();const r=await fetch(u);
-  if(r.status===429||r.status===418){const w=Math.max(5,+r.headers.get('retry-after')||30)*1000;FP.pause=Date.now()+w;continue}
+const FP={tok:120,ts:Date.now(),pause:0,RATE:22,CAP:120,MAXP:30,MAXPG:12};
+/* token bucket in Binance 'weight' units (22/s = ~1300/min, limit is 2400/min) shared by ALL footprint requests */
+const gateW=async w=>{for(;;){const n=Date.now();FP.tok=Math.min(FP.CAP,FP.tok+(n-FP.ts)/1000*FP.RATE);FP.ts=n;if(n<FP.pause){await sleep(FP.pause-n);continue}if(FP.tok>=w){FP.tok-=w;return}await sleep(Math.ceil((w-FP.tok)/FP.RATE*1000)+25)}};
+async function fpGet(u,w){w=w||20;for(let i=0;i<3;i++){await gateW(w);const r=await fetch(u);
+  const used=+r.headers.get('x-mbx-used-weight-1m')||0;if(used>1650)FP.pause=Date.now()+(60000-Date.now()%60000)+800;
+  if(r.status===429||r.status===418){const s=Math.max(5,+r.headers.get('retry-after')||30)*1000;FP.pause=Date.now()+s;continue}
   if(!r.ok)throw Error('HTTP '+r.status);return r.json()}throw Error('rate limited - waiting')}
 /* ---- IndexedDB cache ---- */
 let _db=null;const idb=()=>_db||(_db=new Promise(res=>{try{const q=indexedDB.open('edge-fp',1);q.onupgradeneeded=()=>q.result.createObjectStore('b');q.onsuccess=()=>res(q.result);q.onerror=()=>res(null)}catch(e){res(null)}}));
@@ -118,10 +120,10 @@ function estK(F,B,k){const o=+k[1],h=+k[2],l=+k[3],cl=+k[4],vol=+k[5],tb=Math.mi
  lv.forEach(i=>{const u=wu.get(i)||0,d=wd.get(i)||0,b=u*.7+d*.3,s=u*.3+d*.7;raw.set(i,[b,s]);sb+=b;ss+=s});
  raw.forEach((r,i)=>{let L=B.lv.get(i);if(!L){L=[0,0];B.lv.set(i,L)}L[1]+=sb?tb*r[0]/sb:0;L[0]+=ss?(vol-tb)*r[1]/ss:0});B.b+=tb;B.s+=vol-tb}
 const IVS=[[1,'1m'],[3,'3m'],[5,'5m'],[15,'15m'],[30,'30m'],[60,'1h'],[120,'2h'],[240,'4h']];
-async function fpSynLoad(c,F,fromMs,toMs){const tf=Math.max(1,Math.round(c.tfm)),ps=F.fut?1500:1000,span=(toMs-fromMs)/60000;
+async function fpSynLoad(c,F,fromMs,toMs){const tf=Math.max(1,Math.round(c.tfm)),ps=1000,span=(toMs-fromMs)/60000;
  const L=IVS.filter(x=>tf%x[0]===0);let pick=L[L.length-1];for(const x of L){if(Math.ceil(span/(x[0]*ps))<=FP.MAXPG){pick=x;break}}
  const ivMs=pick[0]*60000,pages=Math.min(FP.MAXPG,Math.ceil((toMs-fromMs)/(ivMs*ps))),m=new Map();F.ivl=pick[1];
- for(let i=0;i<pages&&!F.dead;i+=6){const R=await Promise.all(Array.from({length:Math.min(6,pages-i)},(_,j)=>jget(`${F.base}/klines?symbol=${c.name}&interval=${pick[1]}&limit=${ps}&endTime=${toMs-(i+j)*ps*ivMs-1}`).catch(()=>null)));
+ for(let i=0;i<pages&&!F.dead;i+=6){const R=await Promise.all(Array.from({length:Math.min(6,pages-i)},(_,j)=>fpGet(`${F.base}/klines?symbol=${c.name}&interval=${pick[1]}&limit=${ps}&endTime=${toMs-(i+j)*ps*ivMs-1}`,F.fut?5:2).catch(()=>null)));
   R.forEach(j=>Array.isArray(j)&&j.forEach(k=>m.set(k[0],k)));await sleep(80)}
  const ks=[...m.values()].sort((a,b)=>a[0]-b[0]);if(F.dead)return 0;if(!ks.length){F.synMore=0;return 0}
  const first=Math.ceil(Math.max(ks[0][0],fromMs)/1000/F.per)*F.per,lim=Math.floor(toMs/1000/F.per)*F.per+F.per,tmp=new Map();
@@ -132,7 +134,8 @@ async function fpSynLoad(c,F,fromMs,toMs){const tf=Math.max(1,Math.round(c.tfm))
 async function fpFill(c,F,t){const end=(t+F.per)*1000,tmp=new Map();let ws=t*1000,fromId=null,done=false,pages=0;
  for(;pages<FP.MAXP&&!F.dead&&!done;pages++){
   const wend=Math.min(end-1,ws+3599999),u=fromId!=null?`${F.base}/aggTrades?symbol=${c.name}&fromId=${fromId}&limit=1000`:`${F.base}/aggTrades?symbol=${c.name}&startTime=${ws}&endTime=${wend}&limit=1000`;
-  const j=await fpGet(u);if(!Array.isArray(j))return false;
+  const j=await fpGet(u,F.fut?20:2);if(!Array.isArray(j))return false;
+  if(pages===0&&fromId==null&&j.length>=1000){const sp=(j[j.length-1].T-j[0].T)||1;if((F.per*1000)/sp>FP.MAXP*.9){F.skip.set(t,Infinity);return false}}
   if(!j.length){if(fromId!=null){done=true;break}ws+=3600000;if(ws>=end){done=true;break}continue}
   for(const x of j){if(x.T>=end||x.a>F.bA){done=true;break}addTr(F,tmp,x.T,+x.p,+x.q,x.m)}
   if(done)break;fromId=j[j.length-1].a+1;
@@ -145,7 +148,7 @@ async function fpFill(c,F,t){const end=(t+F.per)*1000,tmp=new Map();let ws=t*100
 function fpNext(c,F){const a=c.view();if(!a.length)return null;const ts=c.c.timeScale(),vr=ts.getVisibleLogicalRange();if(!vr)return null;
  const i0=Math.max(0,Math.floor(vr.from)),i1=Math.min(a.length-1,Math.ceil(vr.to)),now=Date.now(),ok=t=>t<F.wsBar&&!F.real.has(t)&&!F.cur.has(t)&&(F.skip.get(t)||0)<now;
  for(let i=i1;i>=i0;i--)if(ok(a[i].time))return a[i].time;
- for(let i=i0-1;i>=Math.max(0,i0-300);i--)if(ok(a[i].time))return a[i].time;return null}
+ for(let i=i0-1;i>=Math.max(0,i0-30);i--)if(ok(a[i].time))return a[i].time;return null}
 async function fpWorker(c,F){while(!F.dead){const t=fpNext(c,F);if(t==null){await sleep(1200);continue}F.cur.add(t);
   try{const ok=await fpFill(c,F,t);if(!ok&&!F.dead)F.skip.set(t,Infinity)}catch(e){F.err=String(e.message||e);F.skip.set(t,Date.now()+60000);await sleep(2000)}F.cur.delete(t)}}
 function fpStop(c){if(c._fp){const F=c._fp;F.dead=1;if(F.ws){F.ws.onmessage=null;F.ws.onclose=null;try{F.ws.close()}catch(e){}}c._fp=null;c._fs1=null}}
@@ -163,7 +166,7 @@ async function fpStart(c){const key=c.src+c.name+c.tfm;if(c._fp&&c._fp.key===key
  const rc=a0[Math.max(0,a0.length-120)].time*1000;fpSynLoad(c,F,rc,Date.now()).then(()=>a0.length>120?fpSynLoad(c,F,a0[0].time*1000,rc):0).catch(e=>{F.err=String(e.message||e)});
  try{
   const cached=await idbLoad(F.pfx+'|');cached.forEach(([k,v])=>{const t=+k.split('|').pop();F.bars.set(t,des(v));F.real.add(t)});F.ver++;
-  const j=await fpGet(`${base}/aggTrades?symbol=${c.name}&limit=1`);
+  const j=await fpGet(`${base}/aggTrades?symbol=${c.name}&limit=1`,fut?20:2);
   if(Array.isArray(j)&&j[0]){F.bA=j[0].a;F.maxA=j[0].a;F.wsBar=Math.floor(j[0].T/1000/per)*per+per}
   F.real.forEach(t=>{if(t>=F.wsBar-per)F.real.delete(t)});
  }catch(e){F.err=String(e.message||e)}
