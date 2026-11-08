@@ -20,7 +20,10 @@ const css=D.createElement('style');css.textContent=`
 .dbm{position:fixed;z-index:900;background:#1c1c1c;border:1px solid #2d2d2d;border-radius:10px;padding:6px 0;box-shadow:0 10px 30px #000;font:14px system-ui;color:#e6e6e6;min-width:150px;max-height:60vh;overflow:auto}
 .dbm div{padding:9px 16px;cursor:pointer;display:flex;align-items:center;gap:12px;white-space:nowrap}.dbm div:hover{background:#2c2c2c}.dbm div.on{background:#2c2c2c;font-weight:700}
 .dbm i{display:block;width:48px;border-top:3px solid #fff}.dbm small{color:#868993}
-body>.cpop{z-index:910}`;D.head.appendChild(css);
+body>.cpop{z-index:910}
+#dpfav{background:#0d0d0d!important;border:1px solid #1f1f1f!important;border-radius:10px!important;padding:6px 10px!important;gap:4px!important;box-shadow:0 8px 28px #000c!important}
+#dpfav button{width:38px!important;height:34px!important;border-radius:7px!important;color:#e6e6e6!important}#dpfav button:hover{background:#262626!important}
+#dpfav button svg{width:26px;height:26px}#dpfav .dpgrip{width:18px!important;color:#6b6b6b!important}`;D.head.appendChild(css);
 
 const ic=p=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 const IC={tree:ic('<rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><path d="M17 13.5v7M13.5 17h7"/>'),

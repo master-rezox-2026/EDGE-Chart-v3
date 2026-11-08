@@ -86,7 +86,7 @@ function ap(c){if(!c.c||!c.s)return;try{
  const xl={color:V.xc,style:LS[V.xs]??2,width:+V.xw||1};
  c.c.applyOptions({layout:{background:bg,textColor:V.tx,fontSize:+V.fs},
   grid:{vertLines:{visible:!!V.gv,color:rgba(V.gvc,V.gvA)},horzLines:{visible:!!V.gh,color:rgba(V.ghc,V.ghA)}},
-  crosshair:{vertLine:xl,horzLine:xl},timeScale:{rightOffset:+V.ro,borderColor:V.ln}});
+  crosshair:{vertLine:xl,horzLine:xl},timeScale:{rightOffset:Math.max(+V.ro,c._htfNeed||0),borderColor:V.ln}});
  const ps=c.c.priceScale('right'),opt={mode:c.cfg.log?1:V.sv==='pct'?2:V.sv==='idx'?3:0,borderColor:V.ln};
  if(!S.ind.rsi&&!S.ind.ao){const ch=(c.host.querySelector('.cv')||{}).clientHeight||600;opt.scaleMargins={top:V.mt/100,bottom:c.style==='footprint'?Math.max(V.mb/100,74/ch):V.mb/100}}
  ps.applyOptions(opt);
