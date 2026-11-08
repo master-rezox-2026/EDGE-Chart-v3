@@ -47,25 +47,27 @@ const cvOf=c=>c.host.querySelector('.cv'),curC=()=>(typeof act!=='undefined'&&ac
 const initVc=c=>{if(!c._vc){const r=cvr(c);c._vc={clientX:r.left+r.width/2,clientY:r.top+r.height/2}}return c._vc};
 const moveVc=(c,dx,dy)=>{const r=cvr(c),v=initVc(c);v.clientX=Math.max(r.left+2,Math.min(r.right-60,v.clientX+dx));v.clientY=Math.max(r.top+2,Math.min(r.bottom-30,v.clientY+dy));return v};
 const aim=c=>{const v=initVc(c);fire(drOn(c)?c.dpc:(D.elementFromPoint(v.clientX,v.clientY)||cvOf(c)),'mousemove',v)};
+const fastPlace=c=>{const v=initVc(c),r=cvr(c);ring.style.display='block';ring.style.left=v.clientX+'px';ring.style.top=v.clientY+'px';
+ if(typeof hl!=='undefined'){hl.style.cssText=`display:block;left:${r.left}px;width:${r.width-56}px;top:${v.clientY}px`;vl.style.cssText=`display:block;top:${r.top}px;height:${r.height-26}px;left:${v.clientX}px`}};
+let raf=0;const aimLater=c=>{fastPlace(c);if(raf)return;raf=requestAnimationFrame(()=>{raf=0;aim(c)})};
 let tp=null;const CAP={capture:true,passive:false};
 D.addEventListener('touchstart',e=>{const c=cf(e.target);if(!c||e.touches.length!==1){if(tp&&tp.tm)clearTimeout(tp.tm);tp=null;return}const t=e.touches[0],dr=drOn(c);
  tp={c,dr,lx:t.clientX,ly:t.clientY,x:t.clientX,y:t.clientY,mv:0,t:Date.now()};
- if(dr){e.preventDefault();e.stopImmediatePropagation();initVc(c);aim(c);return}
+ if(dr){e.preventDefault();e.stopImmediatePropagation();initVc(c);fastPlace(c);aim(c);return}
  /* no drawing tool: does the finger land on an existing drawing? -> drag it (drawing-pro handles mousedown on the chart box) */
  const ok=cvOf(c).dispatchEvent(new MouseEvent('mousedown',{bubbles:true,cancelable:true,clientX:t.clientX,clientY:t.clientY,button:0,view:window}));
  if(!ok){tp.hit=1;e.preventDefault();e.stopImmediatePropagation();return}
- /* long press on empty chart = grab the crosshair and move it */
- tp.tm=setTimeout(()=>{if(tp&&!tp.mv){tp.xh=1;navigator.vibrate&&navigator.vibrate(12)}},350)},CAP);
+ },CAP);
 D.addEventListener('touchmove',e=>{if(!tp)return;const t=e.touches[0];if(Math.hypot(t.clientX-tp.x,t.clientY-tp.y)>8){tp.mv=1;clearTimeout(tp.tm)}
  if(tp.hit){e.preventDefault();e.stopImmediatePropagation();fire(cvOf(tp.c),'mousemove',t);return}
- if(tp.dr||tp.xh){e.preventDefault();e.stopImmediatePropagation();if(tp.dr)tp.c._moved=1;const v=moveVc(tp.c,t.clientX-tp.lx,t.clientY-tp.ly);tp.lx=t.clientX;tp.ly=t.clientY;aim(tp.c)}},CAP);
+ if(tp.dr||tp.xh){e.preventDefault();e.stopImmediatePropagation();if(tp.dr)tp.c._moved=1;const v=moveVc(tp.c,t.clientX-tp.lx,t.clientY-tp.ly);tp.lx=t.clientX;tp.ly=t.clientY;aimLater(tp.c)}},CAP);
 D.addEventListener('touchend',e=>{if(!tp)return;const t=e.changedTouches[0],o=tp;tp=null;clearTimeout(o.tm);
  if(o.hit){e.preventDefault();e.stopImmediatePropagation();fire(cvOf(o.c),'mouseup',t);return}
  if(o.xh){e.preventDefault();e.stopImmediatePropagation();return}
  if(o.dr){e.preventDefault();e.stopImmediatePropagation();if(!o.mv&&Date.now()-o.t<450){const v=initVc(o.c);fire(o.c.dpc,'mousemove',v);fire(o.c.dpc,'mousedown',v);fire(o.c.dpc,'mouseup',v);o.c._moved=0}}},CAP);
-/* the crosshair ring is ALWAYS visible on phones */
-setInterval(()=>{if(!mob()){ring.style.display='none';return}const c=curC();if(!c||!c.host||!cvOf(c)){ring.style.display='none';return}
- const v=moveVc(c,0,0);ring.style.display='block';ring.style.left=v.clientX+'px';ring.style.top=v.clientY+'px';if(!tp)aim(c)},250);
+/* blue cursor only while a drawing tool is active (no yellow ring / dot any more) */
+const showRing=()=>{if(!mob()){ring.style.display='none';return}const c=curC();if(!c||!c.host||!cvOf(c)||!window.DPX||DPX.st().tool==='cur'){ring.style.display='none';return}fastPlace(c)};
+setInterval(showRing,200);
 
 /* ---------- TradingView-mobile style drawing UI: step banner, blue cursor, bottom drawing bar ---------- */
 const st2=D.createElement('style');st2.textContent=`#tvstep{position:fixed;z-index:325;left:8px;right:8px;display:none;align-items:center;gap:12px;background:#1e222d;color:#fff;border-radius:10px;padding:10px 14px;font:14px system-ui;box-shadow:0 4px 14px #0009}#tvstep b{background:#2f3341;border-radius:6px;padding:4px 9px;font-weight:600;white-space:nowrap}#tvstep span{flex:1;text-align:center}#tvstep i{font-style:normal;font-size:19px;padding:0 4px}
@@ -84,7 +86,7 @@ setInterval(()=>{if(!mob()||!window.DPX){sb.style.display=db.style.display=hl.st
  const c=curC(),s=DPX.st(),drawing=s.tool!=='cur';if(!c||!c.host||!cvOf(c))return;const r=cvr(c),v=initVc(c);
  const mode=drawing?'draw':'idle';if(mode!==ringMode){ringMode=mode;
   if(drawing){ring.style.cssText='position:fixed;z-index:200;width:14px;height:14px;margin:-7px 0 0 -7px;background:#2962ff;border:2px solid #fff;border-radius:50%;pointer-events:none;box-shadow:0 0 0 1px #0008';dot.style.display='none'}
-  else{ring.style.cssText='position:fixed;z-index:200;width:36px;height:36px;margin:-18px 0 0 -18px;border:2px solid #e6b422;border-radius:50%;pointer-events:none;box-shadow:0 0 0 1px #000a,inset 0 0 0 1px #000a';dot.style.display='block'}}
+  else{ring.style.display='none'}}
  if(drawing){const n=s.n,need=s.need,mv=!!c._moved,ok=need>=1&&need<=6;
   sb.style.display='flex';sb.style.top=(r.top+6)+'px';
   sb.firstChild.textContent=ok?Math.min(2*n+(mv?2:1),2*need)+' of '+2*need:s.name||'Draw';
@@ -93,5 +95,5 @@ setInterval(()=>{if(!mob()||!window.DPX){sb.style.display=db.style.display=hl.st
  else{c._moved=0;sb.style.display='none';hl.style.display=vl.style.display='none'}
  db.style.display=(drawing||s.sel)?'flex':'none';
  db.querySelector('[data-a=x]').style.display=drawing?'':'none';
- db.querySelector('[data-a=mag]').classList.toggle('on',+S.set.mag>0);db.querySelector('[data-a=lock]').classList.toggle('on',!!DPX.O.lock);db.querySelector('[data-a=hide]').classList.toggle('on',!!(DPX.O.hid&&DPX.O.hid.dr))},120);
+ db.querySelector('[data-a=mag]').classList.toggle('on',+S.set.mag>0);db.querySelector('[data-a=lock]').classList.toggle('on',!!DPX.O.lock);db.querySelector('[data-a=hide]').classList.toggle('on',!!(DPX.O.hid&&DPX.O.hid.dr))},80);
 })();

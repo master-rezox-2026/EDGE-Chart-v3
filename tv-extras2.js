@@ -83,58 +83,127 @@ function mv(id,hit){const el=$('#'+id);if(!el||el._mv)return;el._mv=1;
 const grab=id=>e=>e.target.id===id;
 setInterval(()=>{mv('ltb',e=>e.target.id==='ltb'||e.target.classList.contains('sep')||e.offsetY<14&&e.target.id==='ltb');mv('dpfav',e=>!!(e.target.closest&&e.target.closest('.dpgrip')))},800);
 
-/* ================= 5. Footprint ================= */
+/* ================= 5. Footprint v2 =================
+   * REAL trades: Binance aggTrades back-filled bar by bar (newest first, visible bars first, throttled), live bars from the WebSocket,
+     finished bars cached in IndexedDB so reloads / revisits are instant.
+   * Bars not yet back-filled are ESTIMATED from klines (finest interval that covers the whole loaded history, up to ~30k candles),
+     using the real O-H-L-C path + taker-buy volume (not a flat spread). More history loads automatically when you scroll left.
+   * Drawing is dirty-checked (only when view / data changed, live ticks max ~7 fps) with a linear price->pixel map. */
 const nice=r=>{const e=Math.pow(10,Math.floor(Math.log10(r))),f=r/e;return(f<1.5?1:f<3.5?2:f<7.5?5:10)*e};
 const fq=v=>v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?(v/1e3).toFixed(1)+'K':v>=100?v.toFixed(0):v>=1?v.toFixed(1):v.toFixed(2);
-function fpAdd(c,F,T,p,q,sellAgg){const per=c.tfm*60,t=Math.floor(T/1000/per)*per;let B=F.bars.get(t);if(!B){B={lv:new Map(),b:0,s:0};F.bars.set(t,B)}
- const k=Math.floor(p/F.step+1e-9);let L=B.lv.get(k);if(!L){L=[0,0];B.lv.set(k,L)}if(sellAgg){L[0]+=q;B.s+=q}else{L[1]+=q;B.b+=q}}
-/* real trades are used where fully covered (t0..now); older bars are ESTIMATED from 1m klines (exact volume + taker-buy split, spread over the candle's price range) */
-function fpBar(F,t){return(F.t0!=null&&t>=F.t0&&F.bars.get(t))||F.syn.get(t)||null}
-function fpSyn(c,F,ks,from){const per=c.tfm*60,m=new Map();
- ks.forEach(k=>{const bt=Math.floor(k[0]/1000/per)*per;if(from!=null&&bt<from)return;const lo=+k[3],hi=+k[2],vol=+k[5],tb=+k[9]||0;let B=m.get(bt);if(!B){B={lv:new Map(),b:0,s:0};m.set(bt,B)}
-  const a=Math.floor(lo/F.step+1e-9),z=Math.floor(hi/F.step+1e-9),n=z-a+1,buy=tb/n,sell=(vol-tb)/n;
-  for(let i=a;i<=z;i++){let L=B.lv.get(i);if(!L){L=[0,0];B.lv.set(i,L)}L[0]+=sell;L[1]+=buy}B.s+=vol-tb;B.b+=tb});
- m.forEach((B,t)=>F.syn.set(t,B))}
-async function fpSynLoad(c,F,mins){const fut=c.src==='BF',base=fut?'https://fapi.binance.com/fapi/v1':'https://api.binance.com/api/v3',ps=fut?1500:1000,pages=Math.min(6,Math.ceil(mins/ps)),now=Date.now(),per=c.tfm*60;
- const R=await Promise.all(Array.from({length:pages},(_,i)=>jget(`${base}/klines?symbol=${c.name}&interval=1m&limit=${ps}&endTime=${now-i*ps*60000}`).catch(()=>null)));
- const m=new Map();R.forEach(j=>Array.isArray(j)&&j.forEach(k=>m.set(k[0],k)));const ks=[...m.values()].sort((a,b)=>a[0]-b[0]);if(F.dead||!ks.length)return;
- fpSyn(c,F,ks,Math.ceil(ks[0][0]/1000/per)*per)}
-function fpStop(c){if(c._fp){c._fp.dead=1;clearInterval(c._fp.sy);if(c._fp.ws){c._fp.ws.onmessage=null;c._fp.ws.close()}c._fp=null}}
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const FP={gate:0,pause:0,MAXP:40,MAXPG:20,GAP:550};
+const gate=async()=>{const n=Date.now(),t=Math.max(n,FP.gate,FP.pause);FP.gate=t+FP.GAP;if(t>n)await sleep(t-n)};
+async function fpGet(u){for(let i=0;i<3;i++){await gate();const r=await fetch(u);
+  if(r.status===429||r.status===418){const w=Math.max(5,+r.headers.get('retry-after')||30)*1000;FP.pause=Date.now()+w;continue}
+  if(!r.ok)throw Error('HTTP '+r.status);return r.json()}throw Error('rate limited - waiting')}
+/* ---- IndexedDB cache ---- */
+let _db=null;const idb=()=>_db||(_db=new Promise(res=>{try{const q=indexedDB.open('edge-fp',1);q.onupgradeneeded=()=>q.result.createObjectStore('b');q.onsuccess=()=>res(q.result);q.onerror=()=>res(null)}catch(e){res(null)}}));
+async function idbPut(key,val){const d=await idb();if(!d)return;try{d.transaction('b','readwrite').objectStore('b').put(val,key)}catch(e){}}
+async function idbLoad(pfx){const d=await idb();if(!d)return[];return new Promise(res=>{const out=[];try{const r=d.transaction('b').objectStore('b').openCursor(IDBKeyRange.bound(pfx,pfx+'\uffff'));
+  r.onsuccess=()=>{const c=r.result;if(c){out.push([c.key,c.value]);c.continue()}else res(out)};r.onerror=()=>res(out)}catch(e){res(out)}})}
+const ser=B=>[B.b,B.s,[...B.lv].map(([k,v])=>[k,v[0],v[1]])];
+const des=a=>{const B={lv:new Map(),b:a[0],s:a[1],mx:0};a[2].forEach(x=>{B.lv.set(x[0],[x[1],x[2]]);B.mx=Math.max(B.mx,x[1]+x[2])});return B};
+const newB=()=>({lv:new Map(),b:0,s:0,mx:0});
+function addTr(F,map,T,p,q,sell){const t=Math.floor(T/1000/F.per)*F.per;let B=map.get(t);if(!B){B=newB();map.set(t,B)}
+ const k=Math.floor(p/F.step+1e-9);let L=B.lv.get(k);if(!L){L=[0,0];B.lv.set(k,L)}if(sell){L[0]+=q;B.s+=q}else{L[1]+=q;B.b+=q}const tt=L[0]+L[1];if(tt>B.mx)B.mx=tt;return t}
+function fpBar(F,t){return(F.real.has(t)&&F.bars.get(t))||F.syn.get(t)||null}
+/* ---- estimate one kline over the price path O->(L|H)->(H|L)->C; buyers dominate up-moves, sellers down-moves; totals match taker volume ---- */
+function estK(F,B,k){const o=+k[1],h=+k[2],l=+k[3],cl=+k[4],vol=+k[5],tb=Math.min(vol,+k[9]||vol/2),st=F.step;if(!(vol>0))return;
+ const pts=cl>=o?[o,l,h,cl]:[o,h,l,cl],wu=new Map(),wd=new Map();let any=0;
+ for(let s=0;s<3;s++){const a=pts[s],b=pts[s+1],lo=Math.min(a,b),hi=Math.max(a,b),m=b>=a?wu:wd;if(hi<=lo)continue;
+  for(let i=Math.floor(lo/st+1e-9),z=Math.floor(hi/st+1e-9);i<=z;i++){const ov=Math.min(hi,(i+1)*st)-Math.max(lo,i*st);if(ov>0){m.set(i,(m.get(i)||0)+ov);any=1}}}
+ if(!any){const i=Math.floor(cl/st+1e-9);wu.set(i,1);wd.set(i,1)}
+ const lv=new Set([...wu.keys(),...wd.keys()]);let sb=0,ss=0;const raw=new Map();
+ lv.forEach(i=>{const u=wu.get(i)||0,d=wd.get(i)||0,b=u*.7+d*.3,s=u*.3+d*.7;raw.set(i,[b,s]);sb+=b;ss+=s});
+ raw.forEach((r,i)=>{let L=B.lv.get(i);if(!L){L=[0,0];B.lv.set(i,L)}L[1]+=sb?tb*r[0]/sb:0;L[0]+=ss?(vol-tb)*r[1]/ss:0});B.b+=tb;B.s+=vol-tb}
+const IVS=[[1,'1m'],[3,'3m'],[5,'5m'],[15,'15m'],[30,'30m'],[60,'1h'],[120,'2h'],[240,'4h']];
+async function fpSynLoad(c,F,fromMs,toMs){const tf=Math.max(1,Math.round(c.tfm)),ps=F.fut?1500:1000,span=(toMs-fromMs)/60000;
+ const L=IVS.filter(x=>tf%x[0]===0);let pick=L[L.length-1];for(const x of L){if(Math.ceil(span/(x[0]*ps))<=FP.MAXPG){pick=x;break}}
+ const ivMs=pick[0]*60000,pages=Math.min(FP.MAXPG,Math.ceil((toMs-fromMs)/(ivMs*ps))),m=new Map();F.ivl=pick[1];
+ for(let i=0;i<pages&&!F.dead;i+=6){const R=await Promise.all(Array.from({length:Math.min(6,pages-i)},(_,j)=>jget(`${F.base}/klines?symbol=${c.name}&interval=${pick[1]}&limit=${ps}&endTime=${toMs-(i+j)*ps*ivMs-1}`).catch(()=>null)));
+  R.forEach(j=>Array.isArray(j)&&j.forEach(k=>m.set(k[0],k)));await sleep(80)}
+ const ks=[...m.values()].sort((a,b)=>a[0]-b[0]);if(F.dead)return 0;if(!ks.length){F.synMore=0;return 0}
+ const first=Math.ceil(Math.max(ks[0][0],fromMs)/1000/F.per)*F.per,lim=Math.floor(toMs/1000/F.per)*F.per+F.per,tmp=new Map();
+ ks.forEach(k=>{const bt=Math.floor(k[0]/1000/F.per)*F.per;if(bt<first||bt>=lim||F.syn.has(bt))return;let B=tmp.get(bt);if(!B){B=newB();tmp.set(bt,B)}estK(F,B,k)});
+ tmp.forEach((B,t)=>{B.lv.forEach(v=>{B.mx=Math.max(B.mx,v[0]+v[1])});F.syn.set(t,B)});
+ F.synFrom=Math.min(F.synFrom==null?Infinity:F.synFrom,first);if(ks[0][0]>fromMs+ivMs*ps)F.synMore=0;F.ver++;return 1}
+/* ---- real trades for one bar [t, t+per) ---- */
+async function fpFill(c,F,t){const end=(t+F.per)*1000,tmp=new Map();let ws=t*1000,fromId=null,done=false,pages=0;
+ for(;pages<FP.MAXP&&!F.dead&&!done;pages++){
+  const wend=Math.min(end-1,ws+3599999),u=fromId!=null?`${F.base}/aggTrades?symbol=${c.name}&fromId=${fromId}&limit=1000`:`${F.base}/aggTrades?symbol=${c.name}&startTime=${ws}&endTime=${wend}&limit=1000`;
+  const j=await fpGet(u);if(!Array.isArray(j))return false;
+  if(!j.length){if(fromId!=null){done=true;break}ws+=3600000;if(ws>=end){done=true;break}continue}
+  for(const x of j){if(x.T>=end||x.a>F.bA){done=true;break}addTr(F,tmp,x.T,+x.p,+x.q,x.m)}
+  if(done)break;fromId=j[j.length-1].a+1;
+  if(j.length<1000&&wend===end-1&&u.indexOf('startTime')>0)done=true}
+ if(!done||F.dead)return false;
+ let B=F.bars.get(t);const T=tmp.get(t);
+ if(!B)B=T||newB();else if(T){T.lv.forEach((v,k)=>{let L=B.lv.get(k);if(!L){L=[0,0];B.lv.set(k,L)}L[0]+=v[0];L[1]+=v[1];B.mx=Math.max(B.mx,L[0]+L[1])});B.b+=T.b;B.s+=T.s}
+ F.bars.set(t,B);F.real.add(t);F.ver++;
+ if(t+F.per<=Date.now()/1000-2&&t+F.per<=F.wsBar-F.per+0)idbPut(F.pfx+'|'+t,ser(B));return true}
+function fpNext(c,F){const a=c.view();if(!a.length)return null;const ts=c.c.timeScale(),vr=ts.getVisibleLogicalRange();if(!vr)return null;
+ const i0=Math.max(0,Math.floor(vr.from)),i1=Math.min(a.length-1,Math.ceil(vr.to)),now=Date.now(),ok=t=>t<F.wsBar&&!F.real.has(t)&&!F.cur.has(t)&&(F.skip.get(t)||0)<now;
+ for(let i=i1;i>=i0;i--)if(ok(a[i].time))return a[i].time;
+ for(let i=i0-1;i>=Math.max(0,i0-300);i--)if(ok(a[i].time))return a[i].time;return null}
+async function fpWorker(c,F){while(!F.dead){const t=fpNext(c,F);if(t==null){await sleep(1200);continue}F.cur.add(t);
+  try{const ok=await fpFill(c,F,t);if(!ok&&!F.dead)F.skip.set(t,Infinity)}catch(e){F.err=String(e.message||e);F.skip.set(t,Date.now()+60000);await sleep(2000)}F.cur.delete(t)}}
+function fpStop(c){if(c._fp){const F=c._fp;F.dead=1;if(F.ws){F.ws.onmessage=null;F.ws.onclose=null;try{F.ws.close()}catch(e){}}c._fp=null;c._fs1=null}}
 async function fpStart(c){const key=c.src+c.name+c.tfm;if(c._fp&&c._fp.key===key)return;
- if(!(c.src==='BF'||c.src==='BN')){fpStop(c);c._fp={key,none:1,bars:new Map(),syn:new Map(),step:1};return}
+ if(!(c.src==='BF'||c.src==='BN')){fpStop(c);c._fp={key,none:1,bars:new Map(),syn:new Map(),real:new Set(),step:1,ver:0};return}
  const a0=c.view();if(a0.length<5)return;fpStop(c);
- const a=a0.slice(-30),avg=a.reduce((s,x)=>s+x.high-x.low,0)/a.length||1,fut=c.src==='BF',base=fut?'https://fapi.binance.com/fapi/v1':'https://api.binance.com/api/v3';
- const F=c._fp={key,bars:new Map(),syn:new Map(),step:nice(avg/9),t0:null,buf:[],ready:0,maxA:0};
+ const a=a0.slice(-30),avg=a.reduce((s,x)=>s+x.high-x.low,0)/a.length||1,fut=c.src==='BF',base=fut?'https://fapi.binance.com/fapi/v1':'https://api.binance.com/api/v3',per=c.tfm*60;
+ const sk='fpstep|'+c.src+c.name+c.tfm,ns=nice(avg/9),old=+localStorage.getItem(sk);const step=old>0&&old/ns>.25&&old/ns<4?old:ns;try{localStorage.setItem(sk,step)}catch(e){}
+ const F=c._fp={key,per,fut,base,step,bars:new Map(),syn:new Map(),real:new Set(),skip:new Map(),cur:new Set(),ver:0,maxA:0,bA:0,wsBar:Infinity,buf:[],ready:0,pfx:`${fut?'F':'S'}|${c.name}|${c.tfm}|${step}`,synFrom:null,synMore:1};
+ const live=d=>{if(d.a<=F.maxA)return;F.maxA=d.a;const t=addTr(F,F.bars,d.T,+d.p,+d.q,d.m);if(t>=F.wsBar)F.real.add(t);F.ver++};
  F.ws=new WebSocket(`wss://${fut?'fstream.binance.com':'stream.binance.com:9443'}/ws/${c.name.toLowerCase()}@aggTrade`);
- F.ws.onmessage=e=>{const d=JSON.parse(e.data);if(!d||!d.p)return;if(!F.ready){F.buf.push(d);return}if(d.a<=F.maxA)return;F.maxA=d.a;fpAdd(c,F,d.T,+d.p,+d.q,d.m)};
- fpSynLoad(c,F,Math.min(c.tfm*70,9000)).catch(e=>{F.err=String(e.message||e)});F.sy=setInterval(()=>fpSynLoad(c,F,c.tfm*2+3).catch(()=>{}),20000);
- try{let j=await jget(`${base}/aggTrades?symbol=${c.name}&limit=1000`);
-  for(let p=0;p<15&&!F.dead&&Array.isArray(j)&&j.length;p++){if(!F.ready){F.maxA=j[j.length-1].a}j.forEach(t=>fpAdd(c,F,t.T,+t.p,+t.q,t.m));F.t0=Math.ceil(j[0].T/1000/(c.tfm*60))*(c.tfm*60);
-   if(!F.ready){F.ready=1;F.buf.forEach(d=>{if(d.a>F.maxA){F.maxA=d.a;fpAdd(c,F,d.T,+d.p,+d.q,d.m)}});F.buf=[]}
-   const from=j[0].a-1000;if(from<0)break;j=await jget(`${base}/aggTrades?symbol=${c.name}&fromId=${from}&limit=1000`)}}catch(e){F.err=String(e.message||e)}
- if(!F.ready){F.ready=1;F.buf=[]}}
+ F.ws.onmessage=e=>{const d=JSON.parse(e.data);if(!d||!d.p)return;if(!F.ready){F.buf.push(d);return}live(d)};
+ F.ws.onclose=()=>{if(!F.dead)setTimeout(()=>{if(c._fp===F)fpStop(c)},2500)};
+ /* estimates for the whole loaded history (fast, few requests) */
+ const rc=a0[Math.max(0,a0.length-120)].time*1000;fpSynLoad(c,F,rc,Date.now()).then(()=>a0.length>120?fpSynLoad(c,F,a0[0].time*1000,rc):0).catch(e=>{F.err=String(e.message||e)});
+ try{
+  const cached=await idbLoad(F.pfx+'|');cached.forEach(([k,v])=>{const t=+k.split('|').pop();F.bars.set(t,des(v));F.real.add(t)});F.ver++;
+  const j=await fpGet(`${base}/aggTrades?symbol=${c.name}&limit=1`);
+  if(Array.isArray(j)&&j[0]){F.bA=j[0].a;F.maxA=j[0].a;F.wsBar=Math.floor(j[0].T/1000/per)*per+per}
+  F.real.forEach(t=>{if(t>=F.wsBar-per)F.real.delete(t)});
+ }catch(e){F.err=String(e.message||e)}
+ F.ready=1;F.buf.forEach(live);F.buf=[];
+ fpWorker(c,F);fpWorker(c,F)}
+const FPC=(()=>{const u=[],d=[];for(let i=0;i<12;i++){const al=(.15+.55*i/11).toFixed(3);u.push(`rgba(38,166,154,${al})`);d.push(`rgba(239,83,80,${al})`)}return{u,d}})();
 function fpDraw(c){const cv=c.host.querySelector('.cv');if(!cv)return;let k=c._fk;
- if(!k||!k.isConnected){k=c._fk=D.createElement('canvas');k.className='tvfp';cv.style.position='relative';cv.appendChild(k)}
- const dpr=devicePixelRatio||1,w=cv.clientWidth,h=cv.clientHeight;if(k.width!==w*dpr||k.height!==h*dpr){k.width=w*dpr;k.height=h*dpr;k.style.width=w+'px';k.style.height=h+'px'}
- const g=k.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,w,h);
- if(c.style!=='footprint'){if(c._fp)fpStop(c);return}
+ if(!k||!k.isConnected){k=c._fk=D.createElement('canvas');k.className='tvfp';cv.style.position='relative';cv.appendChild(k);c._fs1=null}
+ if(c.style!=='footprint'){if(c._fp)fpStop(c);if(k._on){k.getContext('2d').clearRect(0,0,k.width,k.height);k._on=0}return}
+ if(D.hidden)return;
  fpStart(c);const F=c._fp;if(!F)return;const ts=c.c.timeScale(),a=c.view(),vr=ts.getVisibleLogicalRange();if(!vr||!a.length)return;
+ const dpr=devicePixelRatio||1,w=cv.clientWidth,h=cv.clientHeight,last=a[a.length-1],sp=ts.options().barSpacing;
+ const y1=c.s.priceToCoordinate(last.close),y2=c.s.priceToCoordinate(last.close+F.step*10);
+ const s1=[w,h,dpr,vr.from.toFixed(1),vr.to.toFixed(1),y1,y2,a.length,last.time,sp,!!c.cfg.log,F.step,F.err||''].join(),now=Date.now();
+ if(s1===c._fs1&&F.ver===c._fv)return;if(s1===c._fs1&&now-c._fkT<150)return;c._fs1=s1;c._fv=F.ver;c._fkT=now;k._on=1;
+ /* scrolled past the estimated history -> load older klines */
+ if(!F.none&&!F.synBusy&&F.synMore&&F.synFrom!=null&&a[0].time<F.synFrom-F.per){F.synBusy=1;fpSynLoad(c,F,a[0].time*1000,F.synFrom*1000).catch(e=>{F.err=String(e.message||e)}).then(()=>{F.synBusy=0})}
+ if(k.width!==w*dpr||k.height!==h*dpr){k.width=w*dpr;k.height=h*dpr;k.style.width=w+'px';k.style.height=h+'px'}
+ const g=k.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,w,h);
  let pw=56,th=26;try{pw=c.c.priceScale('right').width()||56;th=ts.height()||26}catch(e){}
- const sp=ts.options().barSpacing,bw=Math.max(2,sp*.92),H=h-th,RH=15,TH=RH*4,ty=H-TH,i0=Math.max(0,Math.floor(vr.from)),i1=Math.min(a.length-1,Math.ceil(vr.to));
+ const bw=Math.max(2,sp*.92),H=h-th,RH=15,TH=RH*4,ty=H-TH,i0=Math.max(0,Math.floor(vr.from)),i1=Math.min(a.length-1,Math.ceil(vr.to));
+ const lin=!c.cfg.log&&y1!=null&&y2!=null,sl=lin?(y2-y1)/(F.step*10):0,Y=lin?(p=>y1+(p-last.close)*sl):(p=>c.s.priceToCoordinate(p));
  g.fillStyle='rgba(19,23,34,.94)';g.fillRect(0,ty,w-pw,TH);g.textBaseline='middle';
- const labs=['Delta','Volume','Buy','Sell'];g.font='10px system-ui';
- for(let i=i0;i<=i1;i++){const x=ts.logicalToCoordinate(i);if(x==null||x<-bw||x>w-pw+bw)continue;const B=fpBar(F,a[i].time);if(!B)continue;
-  let mx=0;B.lv.forEach(v=>{mx=Math.max(mx,v[0]+v[1])});
-  B.lv.forEach((v,kk)=>{const y0=c.s.priceToCoordinate((kk+1)*F.step),y1=c.s.priceToCoordinate(kk*F.step);if(y0==null||y1==null||y1<0||y0>ty)return;const hh=y1-y0,t=v[0]+v[1];
-   g.fillStyle=`rgba(${v[1]>=v[0]?'38,166,154':'239,83,80'},${.15+.55*t/mx})`;g.fillRect(x-bw/2,y0,bw,Math.max(1,hh-1));
-   if(t===mx){g.strokeStyle='#e6b422';g.lineWidth=1;g.strokeRect(x-bw/2,y0,bw,Math.max(1,hh-1))}
-   if(hh>=10&&sp>=44){g.font=Math.min(11,hh-2)+'px system-ui';g.fillStyle='#fff';g.textAlign='right';g.fillText(fq(v[0]),x-2,y0+hh/2);g.textAlign='left';g.fillText(fq(v[1]),x+2,y0+hh/2)}});
+ const labs=['Delta','Volume','Buy','Sell'],hh0=Math.abs(Y(F.step)-Y(0)),txt=hh0>=10&&sp>=44,small=sp<3;
+ if(txt)g.font=Math.min(11,hh0-2)+'px system-ui';let nr=0,ne=0;
+ for(let i=i0;i<=i1;i++){const x=ts.logicalToCoordinate(i);if(x==null||x<-bw||x>w-pw+bw)continue;const t=a[i].time,B=fpBar(F,t);if(!B)continue;F.real.has(t)?nr++:ne++;
+  if(!small){const mx=B.mx||1;
+   B.lv.forEach((v,kk)=>{const yt=Y((kk+1)*F.step),yb=Y(kk*F.step);if(yt==null||yb==null||yb<0||yt>ty)return;const hh=yb-yt,tt=v[0]+v[1],ci=Math.round(11*tt/mx);
+    g.fillStyle=(v[1]>=v[0]?FPC.u:FPC.d)[ci];g.fillRect(x-bw/2,yt,bw,Math.max(1,hh-1));
+    if(tt===mx){g.strokeStyle='#e6b422';g.lineWidth=1;g.strokeRect(x-bw/2,yt,bw,Math.max(1,hh-1))}
+    if(txt){g.fillStyle='#fff';g.textAlign='right';g.fillText(fq(v[0]),x-2,yt+hh/2);g.textAlign='left';g.fillText(fq(v[1]),x+2,yt+hh/2)}})}
   const d=B.b-B.s,vals=[d,B.b+B.s,B.b,B.s];
   vals.forEach((v,r)=>{const yy=ty+r*RH;if(r===0){g.fillStyle=d>=0?'rgba(38,166,154,.55)':'rgba(239,83,80,.55)';g.fillRect(x-bw/2,yy+1,bw,RH-1)}
    if(sp>=30){g.fillStyle='#e5e5e5';g.textAlign='center';g.font='10px system-ui';g.fillText(fq(v),x,yy+RH/2+1)}})}
- g.textAlign='left';g.fillStyle='#8b91a3';g.font='10px system-ui';labs.forEach((l,r)=>{g.fillStyle='rgba(19,23,34,.9)';g.fillRect(0,ty+r*RH,44,RH);g.fillStyle='#9aa0b0';g.fillText(l,4,ty+r*RH+RH/2+1)});
+ g.textAlign='left';g.font='10px system-ui';labs.forEach((l,r)=>{g.fillStyle='rgba(19,23,34,.9)';g.fillRect(0,ty+r*RH,44,RH);g.fillStyle='#9aa0b0';g.fillText(l,4,ty+r*RH+RH/2+1)});
  g.strokeStyle='#2a2e39';for(let r=0;r<=4;r++){g.beginPath();g.moveTo(0,ty+r*RH);g.lineTo(w-pw,ty+r*RH);g.stroke()}
- if(F.none||(F.err&&!F.syn.size)||(!F.bars.size&&!F.syn.size)){g.fillStyle='#e6b422';g.textAlign='left';g.font='11px system-ui';g.fillText(F.none?'Footprint: Binance symbols only (tick data needed)':F.err?'Tick data error: '+F.err:'Loading tick data…',52,ty-10)}else if(F.syn.size){g.fillStyle='#8b91a3';g.textAlign='left';g.font='10px system-ui';g.fillText('Older bars: estimated from 1m klines · recent bars: real trades',52,ty-10)}}
+ g.textAlign='left';g.font='11px system-ui';
+ if(F.none){g.fillStyle='#e6b422';g.fillText('Footprint: Binance symbols only (tick data needed)',52,ty-10)}
+ else{const busy=F.cur.size||!F.ready;let m=`● Real trades: ${nr} bars`+(ne?` · ${ne} estimated (${F.ivl||'…'} klines)`:'')+(busy?' · loading…':'')+(FP.pause>now?' · rate-limit pause':'');
+  g.fillStyle=ne||busy?'#e6b422':'#26a69a';if(F.err&&!nr&&!ne){m='Tick data error: '+F.err;g.fillStyle='#ef5350'}g.fillText(m,52,ty-10)}}
 
 /* header: full coin name (ZECUSDT.P for Binance perps) + timeframe, width measured so nothing is cut */
 const mctx=D.createElement('canvas').getContext('2d'),tw=(s,f)=>{mctx.font=f;return Math.ceil(mctx.measureText(s).width)};
@@ -155,7 +224,7 @@ wrap('render',function(){hookClick(this);if(this.style==='footprint')fpDraw(this
 wrap('setStyle',function(){if(this.style!=='footprint')fpDraw(this);else if(window.tvSettings)this.render(0)});
 wrap('load',function(){if(this._fp)fpStop(this)});
 wrap('destroy',function(){fpStop(this)});
-setInterval(()=>charts.forEach(c=>{try{hookClick(c);if(c.style==='footprint'||c._fk)fpDraw(c)}catch(e){}}),120);
+setInterval(()=>charts.forEach(c=>{try{hookClick(c);if(c.style==='footprint'||(c._fk&&c._fk._on))fpDraw(c)}catch(e){}}),120);
 /* ---- faster candle loading for Binance perps: 3 pages in PARALLEL + 20s cache (coin / timeframe switches) ---- */
 const exb=exCandles,FC=new Map();
 exCandles=async function(src,s,n,c){if(src!=='BF'||(c&&c<=3))return exb.apply(this,arguments);

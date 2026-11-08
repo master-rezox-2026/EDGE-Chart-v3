@@ -311,6 +311,7 @@ function colorPop(m,sw,setK,redraw){const old=m.querySelector('.cpop');if(old){c
  p.onclick=e=>{const c=e.target.closest('[data-c]');if(c){pick(c.dataset.c,1);palette();return}if(e.target.closest('[data-pl]'))custom()};
  palette()}
 
+window.tvColorPop=colorPop;
 /* ---------- open ---------- */
 function settings(tab0){D.querySelectorAll('.tvs').forEach(x=>x.remove());const snap=snapKeys();let tab=tab0&&TABS[tab0]?tab0:(window._tvsTab||'Status line');
  const m=D.createElement('div');m.className='tvs';
