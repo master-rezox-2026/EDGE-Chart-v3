@@ -1,12 +1,16 @@
 /* TV TF - load LAST. (1) Timeframe menu like TradingView + 7 hours + your own CUSTOM intervals (saved).
-   (2) Mouse cursor is always the normal arrow over the chart / drag handles (no hand / move cursors).
+   (2) Cursor over the chart is the crosshair (+); a hand / resize cursor appears only on a drawing (see drawing-pro.js).
    (3) Trendline settings dialog styling (multi-control rows, B / I toggles). */
 (()=>{
 const D=document,$=s=>D.querySelector(s);
 if(typeof S==='undefined'||typeof charts==='undefined')return;
 const V=S.tv=S.tv||{};if(!Array.isArray(V.tfc))V.tfc=[];
 const css=D.createElement('style');css.textContent=`
-.cv,.cv *,.cv canvas,.dpc,canvas.tvfp,#ltb,#ltb::before,.dpgrip,#dpft .gp,.tvmv,.tvmv *,#dpset .dph{cursor:default!important}
+.cv,.cv *,.cv canvas,canvas.tvfp{cursor:crosshair!important}
+#ltb,#ltb::before,.dpgrip,#dpft .gp,.tvmv,.tvmv *,#dpset .dph{cursor:default!important}
+/* arrow everywhere on the chart; hand / resize cursors ONLY while the mouse is on a drawing */
+.cv.dcp,.cv.dcp *{cursor:pointer!important}.cv.dcnwse,.cv.dcnwse *{cursor:nwse-resize!important}.cv.dcnesw,.cv.dcnesw *{cursor:nesw-resize!important}
+.cv.dcns,.cv.dcns *{cursor:ns-resize!important}.cv.dcew,.cv.dcew *{cursor:ew-resize!important}
 #dpset .dph i{font-style:normal;cursor:pointer;color:#9aa0b0;font-size:17px;margin:0 14px 0 8px}#dpset .dph i:hover{color:#fff}
 #dpset .hdr{font-size:11px;letter-spacing:.5px;color:#868993;margin:18px 0 -4px}
 #dpset .mrow{display:grid;grid-template-columns:120px 1fr;align-items:center;gap:12px;margin:14px 0}#dpset .mrow>span{color:#d1d4dc}
