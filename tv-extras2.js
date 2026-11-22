@@ -30,7 +30,12 @@ function hookClick(c){hookMag(c);if(c._h2||!c.c)return;c._h2=1;
   c.rp=Math.min(c.ag.length,Math.max(30,i+1));c._cut=false;c.render(0);
   say('Replay start: '+new Date(c.ag[c.rp-1].time*1000).toLocaleString()+' (▶ / ⏩ වලින් ඉදිරියට)')});
  const cv=c.host.querySelector('.cv');
- if(cv)cv.addEventListener('dblclick',e=>{if(e.defaultPrevented||e.cancelBubble)return;if(typeof tvSettings==='function')tvSettings()})}
+ if(cv)cv.addEventListener('dblclick',e=>{if(e.defaultPrevented||e.cancelBubble)return;
+  /* Settings open ONLY when the double-click lands on a candle (body or wick) */
+  try{const ts=c.c.timeScale(),r=cv.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top,lg=ts.coordinateToLogical(x);if(lg==null)return;const i=Math.round(lg),a=c.view(),b=a[i];if(!b)return;
+   const xb=ts.logicalToCoordinate(i);if(xb==null||Math.abs(x-xb)>Math.max(3,(ts.options().barSpacing||6)*.5))return;
+   const yh=c.s.priceToCoordinate(b.high),yl=c.s.priceToCoordinate(b.low);if(yh==null||yl==null||y<yh-3||y>yl+3)return}catch(_){return}
+  if(typeof tvSettings==='function')tvSettings()})}
 
 /* ================= 2. Magnet crosshair (body + wicks) while a drawing tool is active ================= */
 /* weak = snaps only when the cursor is within 6px of an O/H/L/C level; strong = always snaps to nearest O/H/L/C */
