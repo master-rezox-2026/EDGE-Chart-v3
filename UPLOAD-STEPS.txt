@@ -1,0 +1,9 @@
+EDGE Charts - full project (Cloudflare Pages)
+=============================================
+1. Copy these 3 files from your own project into THIS folder (they were never uploaded to me, so they are not included):
+       multichart-addons.js    pro-addons.js    orderflow-scalper.js
+2. Cloudflare dashboard -> Workers & Pages -> edge-charts -> Create new deployment -> Upload assets -> drag this WHOLE folder.
+   (or:  npx wrangler pages deploy . --project-name edge-charts)
+3. Open the site and press Ctrl+Shift+R once.
+Login / Supabase: see DEPLOY.md (run supabase.sql once). config.js already holds your Supabase URL + publishable key.
+Script order in index.html is already correct (edge-ui -> drawing-pro -> tv-extras* -> tv-auth -> tv-mobile -> tv-icons -> tv-settings -> tv-account -> tv-drawbar -> tv-tf -> tv-htf -> tv-speed -> tv-nav).

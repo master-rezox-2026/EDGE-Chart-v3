@@ -118,7 +118,7 @@ function paint(g,c,o,W,H,pv){
  const cirP=(cx,cy,rx,ry)=>{const pts=[];for(let i=0;i<64;i++){const t=i/64*TAU;pts.push({x:cx+rx*Math.cos(t),y:cy+ry*Math.sin(t)})}return pts};
  const head=(a,b,sz)=>{const t=Math.atan2(b.y-a.y,b.x-a.x);g.save();g.setLineDash([]);g.beginPath();g.moveTo(b.x,b.y);g.lineTo(b.x-sz*Math.cos(t-.45),b.y-sz*Math.sin(t-.45));g.lineTo(b.x-sz*Math.cos(t+.45),b.y-sz*Math.sin(t+.45));g.closePath();g.fill();g.restore()};
  const lvOn=()=>(o.lv||[]).filter(l=>l.on);
- const lvLab=(l,pr)=>(o.shl===0?'':l.v+(o.shp===0?'':' ('+fp(pr)+')'));
+ const PV=!lst(c.cfg.sym).includes(o),lvLab=(l,pr)=>(o.shl===0?'':(o.k==='fib'?(o.lvm||'p')==='p':o.lvm==='p')?(l.v*100).toFixed(2)+'%'+(o.k==='fib'?(o.shp?' ('+fp(pr)+')':''):(o.shp===0?'':' ('+fp(pr)+')')):l.v+(o.k==='fib'?(o.shp?' ('+fp(pr)+')':''):(o.shp===0?'':' ('+fp(pr)+')')));
  const dyAt=(a,b,p)=>p.y-(a.y+(b.y-a.y)*(p.x-a.x)/((b.x-a.x)||1e-6));
  const lerp=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
  const ptxt=(P_,names,up)=>P_.forEach((q,i)=>{if(!names[i])return;const nb=[P_[i-1],P_[i+1]].filter(Boolean),peak=nb.every(z=>q.y<=z.y);
@@ -164,10 +164,14 @@ function paint(g,c,o,W,H,pv){
    seg(org.x,org.y,m2.x,m2.y);seg(B.x,B.y,b2.x,b2.y);seg(C.x,C.y,c2.x,c2.y);dash(()=>{seg(B.x,B.y,C.x,C.y);if(org!==A)seg(A.x,A.y,org.x,org.y)});
    if(k==='ipf')[lerp(B,M,.5),lerp(M,C,.5)].forEach(p=>{const e=E(p);g.save();g.setLineDash([3,4]);seg(p.x,p.y,e.x,e.y);g.restore()});break}
  case'fib':{const lv=lvOn(),x1=Math.min(A.x,B.x),x2=Math.max(A.x,B.x),xs=o.exl?0:x1,xe=o.exr?W:x2,pr=v=>o.rev?A.p+(B.p-A.p)*v:B.p+(A.p-B.p)*v;
-  const ys=lv.map(l=>({l,y:sy(pr(l.v))})).filter(z=>z.y!=null);
-  for(let i=1;i<ys.length;i++){g.save();g.globalAlpha*=.1;g.fillStyle=ys[i].l.c;g.fillRect(xs,Math.min(ys[i].y,ys[i-1].y),xe-xs,Math.abs(ys[i].y-ys[i-1].y));g.restore();hit&&hit.f.push([{x:xs,y:Math.min(ys[i].y,ys[i-1].y)},{x:xe,y:Math.min(ys[i].y,ys[i-1].y)},{x:xe,y:Math.max(ys[i].y,ys[i-1].y)},{x:xs,y:Math.max(ys[i].y,ys[i-1].y)}])}
-  ys.forEach(z=>{g.strokeStyle=z.l.c;seg(xs,z.y,xe,z.y);if(o.shl!==0)txt(lvLab(z.l,pr(z.l.v)),xs+3,z.y-8,{al:'left',col:z.l.c,fs:o.fs||11,ni:1})});
-  if(o.trend!==0)dash(()=>seg(A.x,A.y,B.x,B.y));break}
+  const ys=lv.map(l=>({l,y:sy(pr(l.v))})).filter(z=>z.y!=null).sort((a,b)=>a.y-b.y);
+  if(o.fbg!==0)for(let i=1;i<ys.length;i++){g.save();g.globalAlpha*=(o.fbo==null?10:+o.fbo)/100;g.fillStyle=ys[i].l.c;g.fillRect(xs,ys[i-1].y,xe-xs,ys[i].y-ys[i-1].y);g.restore();hit&&hit.f.push([{x:xs,y:ys[i-1].y},{x:xe,y:ys[i-1].y},{x:xe,y:ys[i].y},{x:xs,y:ys[i].y}])}
+  const fw=+o.fw||1;
+  ys.forEach(z=>{g.save();g.lineWidth=fw;g.setLineDash([[],[6,4],[2,3]][+o.fls||0].map(v=>v*Math.max(1,fw)));g.strokeStyle=z.l.c;seg(xs,z.y,xe,z.y);g.restore();
+   if(o.shl!==0){const rt=(o.lpos||'right')==='right',out=rt&&!o.exr;txt(lvLab(z.l,pr(z.l.v)),out?xe+4:rt?xe-3:xs+3,z.y+(o.lvv==='bottom'?9:o.lvv==='top'?-8:0),{al:rt&&!out?'right':'left',col:z.l.c,fs:o.fs||11,ni:1})}});
+  if(o.trend!==0){g.save();g.strokeStyle=o.tcol||'#787b86';g.setLineDash([[],[6,4],[2,3]][o.tls==null?1:+o.tls]);seg(A.x,A.y,B.x,B.y);g.restore()}
+  if(o.txt&&o.stx!==0&&ys.length){const yt=ys[0].y,yb=ys[ys.length-1].y,ha=o.tha||'right',va=o.tvv||'middle';txt(o.txt,ha==='left'?x1+4:ha==='center'?(x1+x2)/2:x2-4,va==='top'?yt-10:va==='bottom'?yb+10:(yt+yb)/2,{al:ha,col:o.tc||'#d1d4dc',fs:o.fs||11,ni:1})}
+  break}
  case'fext':{const lv=lvOn(),x1=Math.min(B.x,C.x),x2=o.exr?W:Math.max(x1+60,Math.max(B.x,C.x));
   lv.forEach(l=>{const pr=C.p+(B.p-A.p)*l.v,y=sy(pr);if(y==null)return;g.strokeStyle=l.c;seg(x1,y,x2,y);if(o.shl!==0)txt(lvLab(l,pr),x1+3,y-8,{al:'left',col:l.c,fs:o.fs||11,ni:1})});
   dash(()=>{seg(A.x,A.y,B.x,B.y);seg(B.x,B.y,C.x,C.y)});break}
@@ -203,19 +207,19 @@ function paint(g,c,o,W,H,pv){
  case'tcyc':{const dx=B.x-A.x,hh=Math.max(14,Math.abs(B.y-A.y))*(B.y<A.y?-1:1);if(Math.abs(dx)<3)break;const n0=Math.floor(-A.x/Math.abs(dx));for(let i=n0,m=0;m<500;i++,m++){const x=A.x+i*Math.abs(dx);if(x>W)break;if(x+Math.abs(dx)<0)continue;const pts=[];for(let j=0;j<=24;j++){const t=j/24;pts.push({x:x+Math.abs(dx)*t,y:A.y+hh*Math.sin(Math.PI*t)})}path(pts);g.stroke();rec(pts)}break}
  case'sine':{const dx=B.x-A.x;if(Math.abs(dx)<3)break;const m=(A.y+B.y)/2,am=(A.y-B.y)/2,pts=[];for(let x=0;x<=W;x+=3)pts.push({x,y:m+am*Math.cos(Math.PI*(x-A.x)/dx)});path(pts);g.stroke();rec(pts);break}
  case'long':case'short':{const dir=k==='long'?1:-1,rr=+(o.rr||1),d=Math.abs(B.p-A.p),tgt=A.p+dir*d,stop=A.p-dir*d/rr,yT=sy(tgt),yS=sy(stop);if(yT==null||yS==null)break;
-  const x1=A.x,x2=Math.max(B.x,A.x+60),tp=o.tp||'#089981',sl=o.sl||'#f23645',mt=Math.pow(10,-(c.precision||2)),acc=+o.acc||1000,risk=acc*(+o.risk||1)/100,dS=d/rr||1,qty=risk/dS;
+  const x1=A.x,x2=Math.max(B.x,A.x+60),tp=o.tp||'#089981',sl=o.sl||'#f23645',mt=Math.pow(10,-(c.precision||2)),acc=+o.acc||1000,risk=o.rku==='$'?(+o.risk||10):acc*(+o.risk||1)/100,dS=d/rr||1,qty=risk/dS,qp=o.qp==null?2:+o.qp,pst=o.pst||'full',cmp=!!o.pcm,fsz=Math.max(9,Math.min(16,+o.fs||11)),ptc=(o.tc&&o.tc!=='#d1d4dc')?o.tc:'#fff';
   /* outcome: first candle after entry that touches target or stop (stop wins a tie) */
   let res=0,xe=null;{const vw=c.view(),i0=vw.findIndex(z=>z.time>=o.p[0].t);if(i0>=0)for(let i=i0+1;i<vw.length;i++){const z=vw[i],hT=dir>0?z.high>=tgt:z.low<=tgt,hS=dir>0?z.low<=stop:z.high>=stop;if(hT||hS){res=hS?-1:1;xe=t2x(c,z.time);break}}}
   fillP([{x:x1,y:A.y},{x:x2,y:A.y},{x:x2,y:yT},{x:x1,y:yT}],tp,res===1?.36:.2);fillP([{x:x1,y:A.y},{x:x2,y:A.y},{x:x2,y:yS},{x:x1,y:yS}],sl,res===-1?.36:.2);
   g.save();g.setLineDash([]);g.lineWidth=2;g.strokeStyle=tp;seg(x1,yT,x2,yT);g.strokeStyle=sl;seg(x1,yS,x2,yS);g.lineWidth=1;g.strokeStyle='#b2b5be';g.setLineDash([5,4]);seg(x1,A.y,x2,A.y);g.restore();
   if(res&&xe!=null&&xe>=x1-2){const ye=res===1?yT:yS,cl=res===1?tp:sl;g.save();g.setLineDash([2,3]);g.strokeStyle=cl;g.lineWidth=1.2;seg(xe,A.y,xe,ye);g.setLineDash([]);g.beginPath();g.arc(xe,ye,7,0,TAU);g.fillStyle=cl;g.fill();g.fillStyle='#fff';g.font='bold 10px system-ui';g.textAlign='center';g.textBaseline='middle';g.fillText(res===1?'✓':'✕',xe,ye+.5);g.restore()}
-  if(o.shq!==0&&(o===sel||!lst(c.cfg.sym).includes(o))){const vw=c.view(),lp=vw.length?vw[vw.length-1].close:A.p,pnl=res===1?risk*rr:res===-1?-risk:(lp-A.p)*dir*qty,cxm=(x1+x2)/2;
-   const pill=(ls,cx,cy,bg)=>{g.save();g.setLineDash([]);g.font='bold 11px system-ui';g.textAlign='center';g.textBaseline='middle';const w=Math.max(...ls.map(t=>g.measureText(t).width))+16,lh=14,h=ls.length*lh+6,x0=cx-w/2,y0=cy-h/2,r=6;
+  if(o.shq!==0&&(o===sel||o.pas||!lst(c.cfg.sym).includes(o))){const vw=c.view(),lp=vw.length?vw[vw.length-1].close:A.p,pnl=res===1?risk*rr:res===-1?-risk:(lp-A.p)*dir*qty,cxm=(x1+x2)/2;
+   const pill=(ls,cx,cy,bg)=>{g.save();g.setLineDash([]);g.font=`bold ${fsz}px system-ui`;g.textAlign='center';g.textBaseline='middle';const w=Math.max(...ls.map(t=>g.measureText(t).width))+16,lh=fsz+3,h=ls.length*lh+6,x0=cx-w/2,y0=cy-h/2,r=6;
     g.shadowColor='rgba(0,0,0,.35)';g.shadowBlur=6;g.fillStyle=bg;g.beginPath();g.moveTo(x0+r,y0);g.arcTo(x0+w,y0,x0+w,y0+h,r);g.arcTo(x0+w,y0+h,x0,y0+h,r);g.arcTo(x0,y0+h,x0,y0,r);g.arcTo(x0,y0,x0+w,y0,r);g.closePath();g.fill();
-    g.shadowBlur=0;g.fillStyle='#fff';ls.forEach((t,i)=>g.fillText(t,cx,y0+3+lh/2+i*lh));g.restore()};
-   pill([`Target  ${fp(d)}  (${(d/A.p*100).toFixed(2)}%)  ${Math.round(d/mt)} ticks  ·  ${(acc+risk*rr).toFixed(0)}`],cxm,yT+(yT<A.y?-14:14),tp);
-   pill([`Stop  ${fp(dS)}  (${(dS/A.p*100).toFixed(2)}%)  ${Math.round(dS/mt)} ticks  ·  ${(acc-risk).toFixed(0)}`],cxm,yS+(yS>A.y?14:-14),sl);
-   pill([`${res?'Closed':'Open'} PnL ${pnl>=0?'+':''}${pnl.toFixed(2)}  ·  Qty ${qty.toFixed(2)}`,`R:R ${+rr.toFixed(2)}${res?(res===1?'  ·  Target hit':'  ·  Stop hit'):''}`],cxm,A.y,pnl>=0?tp:sl)}
+    g.shadowBlur=0;g.fillStyle=ptc;ls.forEach((t,i)=>g.fillText(t,cx,y0+3+lh/2+i*lh));g.restore()};
+   if(pst!=='pnl'){pill([cmp?`Target  ${fp(d)}`:`Target  ${fp(d)}  (${(d/A.p*100).toFixed(2)}%)  ${Math.round(d/mt)} ticks  ·  ${(acc+risk*rr).toFixed(0)}`],cxm,yT+(yT<A.y?-14:14),tp);
+    pill([cmp?`Stop  ${fp(dS)}`:`Stop  ${fp(dS)}  (${(dS/A.p*100).toFixed(2)}%)  ${Math.round(dS/mt)} ticks  ·  ${(acc-risk).toFixed(0)}`],cxm,yS+(yS>A.y?14:-14),sl)}
+   if(pst!=='tpsl')pill(cmp?[`${pnl>=0?'+':''}${pnl.toFixed(2)}  ·  ${qty.toFixed(qp)}  ·  ${+rr.toFixed(2)}R`]:[`${res?'Closed':'Open'} PnL ${pnl>=0?'+':''}${pnl.toFixed(2)}  ·  Qty ${qty.toFixed(qp)}`,`R:R ${+rr.toFixed(2)}${res?(res===1?'  ·  Target hit':'  ·  Stop hit'):''}`],cxm,A.y,pnl>=0?tp:sl)}
   break}
  case'pforc':{const up=B.p>=A.p,col=up?'#089981':'#f23645';g.strokeStyle=col;g.fillStyle=col;dash(()=>{});seg(A.x,A.y,B.x,B.y);head(A,B,9);const dp=B.p-A.p;
   txt(`${dp>=0?'+':''}${fp(dp)} (${(dp/A.p*100).toFixed(2)}%)\n${Math.round((t2l(c,B.t)||0)-(t2l(c,A.t)||0))} bars, ${fmtD(B.t-A.t)}`,B.x+8,B.y,{al:'left',bg:col,col:'#fff',fs:11,ni:1});break}
@@ -249,14 +253,14 @@ function paint(g,c,o,W,H,pv){
   if(hit){const y1=sy(vp.hi),y2=sy(vp.lo);if(y1!=null&&y2!=null)hit.f.push([{x:x0,y:y1},{x:x0+wmax,y:y1},{x:x0+wmax,y:y2},{x:x0,y:y2}])}
   if(o.shl!==0){const yv=sy(vp.lo+(vp.vah+1)*vp.h),yl=sy(vp.lo+vp.val*vp.h);if(yv!=null)txt('VAH '+fp(vp.lo+(vp.vah+1)*vp.h),x0+wmax+4,yv,{al:'left',fs:10,ni:1});if(yl!=null)txt('VAL '+fp(vp.lo+vp.val*vp.h),x0+wmax+4,yl,{al:'left',fs:10,ni:1})}break}
  case'prng':{const dp=B.p-A.p,col=dp>=0?'#2962ff':'#f23645',x1=Math.min(A.x,B.x)-(A.x===B.x?40:0),x2=Math.max(A.x,B.x)+(A.x===B.x?40:0),xm=(x1+x2)/2;fillP([{x:x1,y:A.y},{x:x2,y:A.y},{x:x2,y:B.y},{x:x1,y:B.y}],col,.15);g.strokeStyle=col;g.fillStyle=col;
-  seg(x1,A.y,x2,A.y);seg(x1,B.y,x2,B.y);seg(xm,A.y,xm,B.y);head({x:xm,y:A.y},{x:xm,y:B.y},8);txt(`${dp>=0?'+':''}${fp(dp)} (${(dp/A.p*100).toFixed(2)}%)`,xm,B.y+(dp>=0?-14:14),{bg:col,col:'#fff',fs:11,ni:1});break}
+  seg(x1,A.y,x2,A.y);seg(x1,B.y,x2,B.y);seg(xm,A.y,xm,B.y);head({x:xm,y:A.y},{x:xm,y:B.y},8);txt(`${(dp/A.p*100).toFixed(2)}%`,xm,B.y+(dp>=0?-16:16),{bg:'#ffffff',col:'#131722',fs:10,ni:1});if(o===sel||PVx(o))txt(`${dp>=0?'+':''}${fp(dp)}`,xm,B.y+(dp>=0?-34:34),{bg:col,col:'#fff',fs:10,ni:1});break}
  case'drng':{const a=c.view(),i0=Math.round(t2l(c,Math.min(A.t,B.t))),i1=Math.round(t2l(c,Math.max(A.t,B.t)));let v=0;for(let i=Math.max(0,i0);i<=Math.min(a.length-1,i1);i++)v+=a[i].volume||0;
   const x1=Math.min(A.x,B.x),x2=Math.max(A.x,B.x),col='#2962ff';fillP([{x:x1,y:0},{x:x2,y:0},{x:x2,y:H},{x:x1,y:H}],col,.1);g.strokeStyle=col;g.fillStyle=col;seg(x1,0,x1,H);seg(x2,0,x2,H);seg(x1,A.y,x2,A.y);head({x:x1,y:A.y},{x:x2,y:A.y},8);
-  txt(`${i1-i0} bars, ${fmtD(B.t-A.t)}\nVol ${fmtV(v)}`,(x1+x2)/2,A.y-24,{bg:col,col:'#fff',fs:11,ni:1});break}
+  txt(`${i1-i0} bars, ${fmtD(B.t-A.t)}\nVol ${fmtV(v)}`,(x1+x2)/2,A.y-26,{bg:'#ffffff',col:'#131722',fs:10,ni:1});break}
  case'dprng':case'ruler':{const a=c.view(),dp=B.p-A.p,i0=Math.round(t2l(c,Math.min(A.t,B.t))),i1=Math.round(t2l(c,Math.max(A.t,B.t)));let v=0;for(let i=Math.max(0,i0);i<=Math.min(a.length-1,i1);i++)v+=a[i].volume||0;
   const col=dp>=0?'#2962ff':'#f23645',x1=Math.min(A.x,B.x),x2=Math.max(A.x,B.x),y1=Math.min(A.y,B.y),y2=Math.max(A.y,B.y),xm=(x1+x2)/2,ym=(y1+y2)/2;
   fillP([{x:x1,y:y1},{x:x2,y:y1},{x:x2,y:y2},{x:x1,y:y2}],col,.15);g.strokeStyle=col;g.fillStyle=col;g.save();g.setLineDash([]);seg(x1,ym,x2,ym);head({x:x1,y:ym},{x:x2,y:ym},8);seg(xm,y1,xm,y2);head({x:xm,y:y1},{x:xm,y:y2},8);g.restore();
-  txt(`${dp>=0?'+':''}${fp(dp)} (${(dp/A.p*100).toFixed(2)}%)\n${i1-i0} bars, ${fmtD(B.t-A.t)}\nVol ${fmtV(v)}`,xm,dp>=0?y1-30:y2+30,{bg:col,col:'#fff',fs:11,ni:1});break}
+  txt(`${dp>=0?'+':''}${fp(dp)} (${(dp/A.p*100).toFixed(2)}%)\n${i1-i0} bars, ${fmtD(B.t-A.t)}\nVol ${fmtV(v)}`,xm,dp>=0?y1-30:y2+30,{bg:'#ffffff',col:'#131722',fs:10,ni:1});break}
  case'brush':case'hilite':{const w=k==='hilite'?Math.max(o.w,10):o.w;g.save();if(k==='hilite')g.globalAlpha=.35;g.lineWidth=w;g.lineCap='round';g.lineJoin='round';
   g.beginPath();P.forEach((q,i)=>{if(!i)g.moveTo(q.x,q.y);else{const p=P[i-1];g.quadraticCurveTo(p.x,p.y,(p.x+q.x)/2,(p.y+q.y)/2)}});g.stroke();g.restore();if(hit)for(let i=1;i<P.length;i++)hit.s.push([P[i-1].x,P[i-1].y,P[i].x,P[i].y]);break}
  case'arr':seg(A.x,A.y,B.x,B.y);head(A,B,8+o.w*2);break;
@@ -302,7 +306,7 @@ function paint(g,c,o,W,H,pv){
  case'emoji':case'icon':{const sz=+o.es||32;g.save();g.setLineDash([]);g.font=`${sz}px system-ui,"Apple Color Emoji","Segoe UI Emoji",sans-serif`;g.textAlign='center';g.textBaseline='middle';g.fillStyle=o.col;g.fillText(o.em||'😀',A.x,A.y);g.restore();hit&&hit.f.push([{x:A.x-sz/2,y:A.y-sz/2},{x:A.x+sz/2,y:A.y-sz/2},{x:A.x+sz/2,y:A.y+sz/2},{x:A.x-sz/2,y:A.y+sz/2}]);break}
  }
  const SELF=new Set(['text','note','pnote','pin','callout','comment','plabel','sign','flag','post','idea','aup','adn','table','image','emoji','icon']);
- if(o.txt&&!SELF.has(k)&&!['tl','ext','ray','info','angle'].includes(k)){const xs=P.map(q=>q.x),ys=P.map(q=>q.y);txt(o.txt,(Math.min(...xs)+Math.max(...xs))/2,Math.min(...ys)-12,{fs:o.fs})}
+ if(o.txt&&!SELF.has(k)&&!['tl','ext','ray','info','angle','fib'].includes(k)){const xs=P.map(q=>q.x),ys=P.map(q=>q.y);txt(o.txt,(Math.min(...xs)+Math.max(...xs))/2,Math.min(...ys)-12,{fs:o.fs})}
  }finally{g.restore()}}
 
 if(!HAS){if(typeof module!=='undefined')module.exports={paint,TD,MENU,mkLv,baseStyle,t2l,l2t,vprofile,regress,arcPts,circum:circum};return}
@@ -418,23 +422,31 @@ const mp=(c,e)=>{const r=c.dpc.getBoundingClientRect();return{x:e.clientX-r.left
 const pxs=(c,o)=>o.p.map(q=>({x:t2x(c,q.t),y:c.s.priceToCoordinate(q.p)}));
 /* 8-handle boxes: 4 corners + 4 edge midpoints (rectangle, ellipse, Gann box/square, price / date / date&price ranges) */
 const PHK=new Set(['long','short']);
+const PVx=o=>o.id==='pv';
 function posDef(c,A){const a=c.view().slice(-30),r=a.length?a.reduce((s2,x)=>s2+(x.high-x.low),0)/a.length:A.p*.002;return{t:A.t+stp(c)*20,p:A.p+Math.max(r*2.5,A.p*.0005)}}
-function posOv(c){const cv=c.host&&c.host.querySelector('.cv');if(!cv)return;let k=c._pxo;const on=sel&&sel.p&&sel.p.length&&shown(c,sel)&&lst(c.cfg.sym).includes(sel)&&!['brush','hilite'].includes(sel.k);
- if(!k||!k.isConnected){if(!on)return;k=c._pxo=document.createElement('canvas');k.style.cssText='position:absolute;left:0;top:0;pointer-events:none;z-index:3';cv.style.position='relative';cv.appendChild(k)}
+function posOv(c){const cv=c.host&&c.host.querySelector('.cv');if(!cv)return;let k=c._pxo;const NB=['brush','hilite'];
+ const on=sel&&sel.p&&sel.p.length&&shown(c,sel)&&lst(c.cfg.sym).includes(sel)&&!NB.includes(sel.k);
+ const pvOn=!on&&tool!=='cur'&&TD[tool]&&TD[tool].need!==0&&pc===c&&pts.length>=1&&mouse&&mouse.c===c&&!(free&&free.c===c)&&!NB.includes(tool);
+ if(!k||!k.isConnected){if(!on&&!pvOn)return;k=c._pxo=document.createElement('canvas');k.style.cssText='position:absolute;left:0;top:0;pointer-events:none;z-index:3';cv.style.position='relative';cv.appendChild(k)}
  const W=cv.clientWidth,H=cv.clientHeight,dpr=devicePixelRatio||1;if(k.width!==W*dpr||k.height!==H*dpr){k.width=W*dpr;k.height=H*dpr;k.style.width=W+'px';k.style.height=H+'px'}
- const g=k.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,W,H);if(!on)return;
- const P=pxs(c,sel);if(P.some(q=>q.x==null||q.y==null))return;let th=26,pw=56;try{th=c.c.timeScale().height()||26;pw=c.c.priceScale('right').width()||56}catch(e){}
- const y0=H-th,xr=W-pw,prec=c.precision||2,kk=sel.k,useT=kk!=='hl',useP=kk!=='vl'&&!PHK.has(kk),BL='#2962ff',BD='rgba(41,98,255,.22)',
+ const g=k.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,W,H);if(!on&&!pvOn)return;
+ let th=26,pw=56;try{th=c.c.timeScale().height()||26;pw=c.c.priceScale('right').width()||56}catch(e){}
+ const yA=H-th,xr=W-pw,prec=c.precision||2,BL='#2962ff',BK='#0b0e14',BD='rgba(41,98,255,.22)',
   fm=new Intl.DateTimeFormat('en-GB',{timeZone:S.tz||undefined,weekday:'short',day:'2-digit',month:'short',year:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
+ const labT=(t,x,col)=>{const p={};fm.formatToParts(new Date(t*1000)).forEach(z=>p[z.type]=z.value);const s2=`${p.weekday} ${p.day} ${p.month} '${p.year}  ${p.hour}:${p.minute}`;g.font='12px system-ui';const w=g.measureText(s2).width+14,xx=Math.max(2,Math.min(xr-w,x-w/2));g.fillStyle=col||BL;g.fillRect(xx,yA+2,w,th-4);g.fillStyle='#fff';g.textAlign='center';g.textBaseline='middle';g.fillText(s2,xx+w/2,yA+th/2)};
+ const labP=(p,y,col)=>{if(y<0||y>yA)return;g.fillStyle=col||BL;g.fillRect(xr+1,y-10,pw-2,20);g.fillStyle='#fff';g.font='12px system-ui';g.textAlign='center';g.textBaseline='middle';g.fillText(p.toLocaleString('en-US',{minimumFractionDigits:prec,maximumFractionDigits:prec}),xr+pw/2,y)};
+ if(pvOn){const d=pt2d(c,mouse.x,mouse.y,1);if(!d)return;const p0=pts[0],x0=t2x(c,p0.t),yp0=c.s.priceToCoordinate(p0.p),xc=mouse.x,yc=mouse.y;if(x0==null||yp0==null)return;
+  if(tool!=='hl'){g.fillStyle=BD;g.fillRect(Math.min(x0,xc),yA,Math.abs(xc-x0),th);labT(p0.t,x0,BL);labT(d.t,xc,BK)}
+  if(tool!=='vl'){const ya=Math.max(0,Math.min(yp0,yc)),yb=Math.min(yA,Math.max(yp0,yc));g.fillStyle=BD;if(yb>ya)g.fillRect(xr,ya,pw,yb-ya);labP(p0.p,yp0,BL);labP(d.p,yc,BK)}
+  return}
+ const P=pxs(c,sel);if(P.some(q=>q.x==null||q.y==null))return;const kk=sel.k,useT=kk!=='hl',useP=kk!=='vl'&&!PHK.has(kk);
  let xs=P.map(q=>q.x),T=sel.p.map(q=>q.t);
  if(PHK.has(kk)){const x2=Math.max(P[1].x,P[0].x+60),e=pt2d(c,x2,P[0].y,1);xs=[P[0].x,x2];T=[sel.p[0].t,e?e.t:sel.p[1].t]}
- const labT=(t,x)=>{const p={};fm.formatToParts(new Date(t*1000)).forEach(z=>p[z.type]=z.value);const s2=`${p.weekday} ${p.day} ${p.month} '${p.year}  ${p.hour}:${p.minute}`;g.font='12px system-ui';const w=g.measureText(s2).width+14,xx=Math.max(2,Math.min(xr-w,x-w/2));g.fillStyle=BL;g.fillRect(xx,y0+2,w,th-4);g.fillStyle='#fff';g.textAlign='center';g.textBaseline='middle';g.fillText(s2,xx+w/2,y0+th/2)};
- const labP=(p,y)=>{if(y<0||y>y0)return;g.fillStyle=BL;g.fillRect(xr+1,y-10,pw-2,20);g.fillStyle='#fff';g.font='12px system-ui';g.textAlign='center';g.textBaseline='middle';g.fillText(p.toLocaleString('en-US',{minimumFractionDigits:prec,maximumFractionDigits:prec}),xr+pw/2,y)};
- if(useT){const i0=xs.indexOf(Math.min(...xs)),i1=xs.indexOf(Math.max(...xs));g.fillStyle=BD;if(xs[i1]>xs[i0])g.fillRect(xs[i0],y0,xs[i1]-xs[i0],th);labT(T[i0],xs[i0]);if(xs[i1]-xs[i0]>1)labT(T[i1],xs[i1])}
- if(useP){const ys=P.map(q=>q.y),ps=sel.p.map(q=>q.p),j0=ys.indexOf(Math.min(...ys)),j1=ys.indexOf(Math.max(...ys));g.fillStyle=BD;if(ys[j1]>ys[j0])g.fillRect(xr,Math.max(0,ys[j0]),pw,Math.min(y0,ys[j1])-Math.max(0,ys[j0]));labP(ps[j0],ys[j0]);if(ys[j1]-ys[j0]>1)labP(ps[j1],ys[j1])}}
+ if(useT){const i0=xs.indexOf(Math.min(...xs)),i1=xs.indexOf(Math.max(...xs));g.fillStyle=BD;if(xs[i1]>xs[i0])g.fillRect(xs[i0],yA,xs[i1]-xs[i0],th);labT(T[i0],xs[i0]);if(xs[i1]-xs[i0]>1)labT(T[i1],xs[i1])}
+ if(useP){const ys=P.map(q=>q.y),ps=sel.p.map(q=>q.p),j0=ys.indexOf(Math.min(...ys)),j1=ys.indexOf(Math.max(...ys));g.fillStyle=BD;if(ys[j1]>ys[j0])g.fillRect(xr,Math.max(0,ys[j0]),pw,Math.min(yA,ys[j1])-Math.max(0,ys[j0]));labP(ps[j0],ys[j0]);if(ys[j1]-ys[j0]>1)labP(ps[j1],ys[j1])}}
 function posAxis(c,L){const M=c._pxl||(c._pxl=new Map());if(c._pxS!==c.s){M.forEach(v=>v.forEach(l=>{try{c._pxS&&c._pxS.removePriceLine(l)}catch(e){}}));M.clear();c._pxS=c.s}
  const live=new Set();
- L.forEach(o=>{if(!PHK.has(o.k)||!o.p||o.p.length<2||!shown(c,o))return;live.add(o);const dir=o.k==='long'?1:-1,A=o.p[0],B=o.p[1],d=Math.abs(B.p-A.p),rr=+(o.rr||1),pr=[A.p+dir*d,A.p,A.p-dir*d/rr],key=pr.join('|')+(o.tp||'')+(o.sl||''),e=M.get(o);
+ L.forEach(o=>{if(!PHK.has(o.k)||!o.p||o.p.length<2||o.shp===0||!shown(c,o))return;live.add(o);const dir=o.k==='long'?1:-1,A=o.p[0],B=o.p[1],d=Math.abs(B.p-A.p),rr=+(o.rr||1),pr=[A.p+dir*d,A.p,A.p-dir*d/rr],key=pr.join('|')+(o.tp||'')+(o.sl||''),e=M.get(o);
   if(e&&e.key===key)return;if(e)e.forEach(l=>{try{c.s.removePriceLine(l)}catch(_){}});
   const cols=[o.tp||'#089981','#787b86',o.sl||'#f23645'],ls=pr.map((p,i)=>c.s.createPriceLine({price:p,color:cols[i],lineVisible:false,axisLabelVisible:true,axisLabelColor:cols[i],axisLabelTextColor:'#ffffff',title:''}));ls.key=key;M.set(o,ls)});
  M.forEach((v,o)=>{if(!live.has(o)){v.forEach(l=>{try{c.s.removePriceLine(l)}catch(_){}});M.delete(o)}})}
@@ -693,7 +705,7 @@ function spec(o){const k=o.k,F=[],add=(ty,key,lb,op)=>F.push({ty,key,lb,op:op||{
  return{Style:F,Text:tx}}
 const defC=(o,key)=>({bon:1,fon:1,shl:1,trend:1,shq:1,bands:1,mid:1,arrow:1,bd:1,shp:['tl','ext','ray','info'].includes(o.k)?0:1}[key]||0);
 const fone=(o,f)=>{let v=o[f.key];if(f.key==='ex')v=(o.exl?1:0)|(o.exr?2:0);if(v==null&&f.def!=null)v=f.def;const id=`data-k="${f.key}" data-ty="${f.ty==='tog'?'chk':f.ty}"`,hx=c=>/^#[0-9a-f]{6}$/i.test(c||'');
- if(f.ty==='col')return`<input type="color" ${id} value="${hx(v)?v:(f.key==='fill'&&hx(o.col)?o.col:(f.key==='tc'&&hx(o.col)?o.col:'#808080'))}">`;
+ if(f.ty==='col'){const cc=hx(v)?v:(f.key==='fill'&&hx(o.col)?o.col:(f.key==='tc'&&hx(o.col)?o.col:'#808080'));return`<span class="dsw" data-sw2="f:${f.key}"><i style="background:${f.key==='fill'?rgbaS(cc,o.fo==null?.15:o.fo):cc}"></i></span>`}
  if(f.ty==='num')return`<input type="number" ${id} min="${f.op.min}" max="${f.op.max}" step="${f.op.step}" value="${v==null?'':v}">`;
  if(f.ty==='chk')return`<input type="checkbox" ${id} ${(v==null?defC(o,f.key):!!+v)?'checked':''}>`;
  if(f.ty==='tog')return`<label class="tgl"><input type="checkbox" ${id} ${+v?'checked':''}><span>${f.lb}</span></label>`;
@@ -703,22 +715,96 @@ const fld=(o,f)=>{if(f.ty==='hdr')return`<div class="hdr">${f.lb}</div>`;
  if(f.ty==='multi')return`<div class="r mrow"><span>${f.lb||''}</span><div class="mi">${f.items.map(x=>fone(o,x)).join('')}</div></div>`;
  if(f.ty==='txt'){const v=o[f.key];return`<div style="margin:6px 0">${f.lb?`<div style="color:#b2b5be;margin-bottom:4px">${f.lb}</div>`:''}<textarea data-k="${f.key}" data-ty="txt" placeholder="${f.ph||''}">${String(v==null?'':v).replace(/</g,'&lt;')}</textarea></div>`}
  return`<label class="r"><span>${f.lb}</span>${fone(o,f)}</label>`};
-function setBody(){const o=setO,sp=spec(o),tabs=['Style','Text'];if(o.lv)tabs.splice(1,0,'Levels');if(o.p.length<=12)tabs.push('Coordinates');tabs.push('Visibility');if(!tabs.includes(setTab))setTab='Style';
+function setBody(){const o=setO,sp=spec(o);let tabs=['Style','Text'];if(o.lv)tabs.splice(1,0,'Levels');if(o.p.length<=12)tabs.push('Coordinates');tabs.push('Visibility');if(o.k==='fib')tabs=['Style','Coordinates','Visibility'];else if(PHK.has(o.k))tabs=['Inputs','Style','Visibility'];if(!tabs.includes(setTab))setTab=tabs[0];
  const P=$('#dpset');P.querySelector('.dph span').textContent=o.nm||(TD[o.k]||{}).n||o.k;P.querySelector('.dptb').innerHTML=tabs.map(t=>`<div class="${t===setTab?'on':''}" data-tab="${t}">${t}</div>`).join('');let h='';
- if(setTab==='Style'||setTab==='Text')h=sp[setTab].map(f=>fld(o,f)).join('');
- else if(setTab==='Levels')h=(o.lv||[]).map((l,i)=>`<div class="lv"><input type="checkbox" data-li="${i}" data-lf="on" ${l.on?'checked':''}><input type="number" step="any" data-li="${i}" data-lf="v" value="${l.v}"><input type="color" data-li="${i}" data-lf="c" value="${/^#[0-9a-f]{6}$/i.test(l.c)?l.c:'#808080'}"></div>`).join('')+`<div style="color:#787b86;margin-top:6px;font-size:11px">Tick to show a level, edit the value, pick its color.</div>`;
+ if(o.k==='fib'&&setTab==='Style')h=fibStyle(o);else if(PHK.has(o.k)&&setTab==='Inputs')h=posInputs(o);else if(PHK.has(o.k)&&setTab==='Style')h=posStyle(o);
+ else if(setTab==='Style'||setTab==='Text')h=sp[setTab].map(f=>fld(o,f)).join('');
+ else if(setTab==='Levels')h=(o.lv||[]).map((l,i)=>`<div class="lv"><input type="checkbox" data-li="${i}" data-lf="on" ${l.on?'checked':''}><input type="number" step="any" data-li="${i}" data-lf="v" value="${l.v}"><span class="dsw" data-sw2="lv:${i}"><i style="background:${/^#[0-9a-f]{6}$/i.test(l.c)?l.c:'#808080'}"></i></span></div>`).join('')+`<div style="color:#787b86;margin-top:6px;font-size:11px">Tick to show a level, edit the value, pick its color.</div>`;
  else if(setTab==='Coordinates')h=o.p.map((q,i)=>`<div style="margin:8px 0"><div style="color:#b2b5be;margin-bottom:4px">Point ${i+1}</div><div style="display:flex;gap:6px"><input type="datetime-local" step="1" data-ci="${i}" data-cf="t" value="${toLoc(q.t)}" style="flex:1"><input type="number" step="any" data-ci="${i}" data-cf="p" value="${q.p}" style="width:110px"></div></div>`).join('');
  else if(setTab==='Visibility')h=['Minutes','Hours','Days','Weeks / Months'].map((n,i)=>`<label class="r"><span>${n}</span><input type="checkbox" data-vi="${i}" ${(o.vis&&o.vis[i]===0)?'':'checked'}></label>`).join('')+`<div style="color:#787b86;margin-top:6px;font-size:11px">Choose the timeframe groups where this drawing is shown.</div>`;
  P.querySelector('.dpbd').innerHTML=h;const l=P.querySelector('.lock');if(l)l.textContent=o.lk?'Unlock':'Lock'}
+
+/* ---------- TradingView-style settings pages: Fib retracement + Long/Short position ---------- */
+(()=>{const st=document.createElement('style');st.textContent=`
+#dpset .r2{display:flex;align-items:center;gap:12px;margin:14px 0;min-height:36px}#dpset .r2 .lb{width:150px;color:#d1d4dc;flex:none}#dpset .r2 .ck{display:flex;align-items:center;gap:12px;flex:1;color:#d1d4dc}
+#dpset .r2 select,#dpset .r2 input[type=number],#dpset .r2 input[type=text]{height:38px;background:#2a2a2a;color:#d1d4dc;border:2px solid #4a4a4a;border-radius:10px;padding:0 10px;font:inherit;min-width:0;box-sizing:border-box}
+#dpset .r2 select{flex:0 1 auto;min-width:96px}#dpset .r2 input[type=number]{width:104px}#dpset .r2 input[disabled]{opacity:.55}
+#dpset .r2 input[type=checkbox],#dpset .fl input[type=checkbox]{appearance:none;-webkit-appearance:none;width:20px;height:20px;flex:none;margin:0;border-radius:5px;border:2px solid #868993;background:transparent;cursor:pointer;display:inline-grid;place-content:center}
+#dpset .r2 input[type=checkbox]:checked,#dpset .fl input[type=checkbox]:checked{background:#fff;border-color:#fff}
+#dpset .r2 input[type=checkbox]:checked::after,#dpset .fl input[type=checkbox]:checked::after{content:"";width:9px;height:5px;border-left:2.2px solid #1b1b1b;border-bottom:2.2px solid #1b1b1b;transform:rotate(-45deg) translate(1px,-1px)}
+#dpset .dsw{position:relative;width:34px;height:34px;border-radius:9px;border:2px solid #4a4a4a;overflow:hidden;flex:none;cursor:pointer;background:repeating-conic-gradient(#3a3a3a 0 25%,#2a2a2a 0 50%) 0/10px 10px}#dpset .dsw i{position:absolute;inset:0}
+#dpset .fl{display:grid;grid-template-columns:1fr 1fr;gap:0 18px;margin:16px 0}#dpset .fl .lr{display:flex;align-items:center;gap:10px;margin:6px 0}
+#dpset .fl .lr input[type=number]{width:92px;height:38px;background:#2a2a2a;color:#d1d4dc;border:2px solid #4a4a4a;border-radius:10px;padding:0 8px;box-sizing:border-box;font:inherit}
+#dpset .fl .lr input[type=checkbox]:not(:checked)~input[type=number]{opacity:.45}#dpset .fl .lr .dsw{margin-left:auto}
+#dpset .r2 input[type=range]{flex:1;accent-color:#2962ff}#dpset .r2 .st{color:#9aa0b0}#dpset .hd3{font-size:11px;letter-spacing:.5px;color:#868993;margin:20px 0 -4px}`;document.head.appendChild(st)})();
+const LSTY=[['Solid',0],['Dashed',1],['Dotted',2]],FSZ=[8,9,10,11,12,14,16,18,20,24].map(n=>[n,n]),HX=c=>/^#[0-9a-f]{6}$/i.test(c||'')?c:'#808080';
+const FIBX=[.667,.882,1.272,1.414,2,2.272,3,3.272,4,4.414,4.764,.05,.95];
+function fibPad(o){if(o.k!=='fib'||!o.lv)return;while(o.lv.length<24){const n=o.lv.length,v=FIBX[n-11];o.lv.push({v:v==null?n:v,c:FC[n%FC.length],on:0})}}
+const rgbaS=(h,a)=>{h=String(h||'#000').replace('#','');if(h.length===3)h=h.replace(/./g,'$&$&');const n=parseInt(h,16)||0;return`rgba(${n>>16&255},${n>>8&255},${n&255},${Math.max(0,Math.min(1,+a))})`};
+const gv=(o,k,d)=>o[k]==null?d:o[k];
+const sl_=(k,opts,v)=>`<select data-k="${k}" data-ty="sel">${opts.map(([n,x])=>`<option value="${x}"${String(v)===String(x)?' selected':''}>${n}</option>`).join('')}</select>`;
+const ck_=(k,v)=>`<input type="checkbox" data-k="${k}" data-ty="chk" ${v?'checked':''}>`;
+const sw_=(id,c)=>`<span class="dsw" data-sw2="${id}"><i style="background:${c}"></i></span>`;
+function fibStyle(o){fibPad(o);const row=(l,i)=>`<div class="lr"><input type="checkbox" data-li="${i}" data-lf="on" ${l.on?'checked':''}><input type="number" step="any" data-li="${i}" data-lf="v" value="${l.v}">${sw_('lv:'+i,HX(l.c))}</div>`;
+ return `<div class="r2"><label class="ck">${ck_('trend',gv(o,'trend',1))}Trend line</label>${sw_('trend',HX(o.tcol||'#787b86'))}${sl_('tls',LSTY,gv(o,'tls',1))}</div>
+<div class="r2"><span class="lb">Levels line</span>${sl_('fw',[1,2,3,4].map(n=>[n+'px',n]),gv(o,'fw',1))}${sl_('fls',LSTY,gv(o,'fls',0))}</div>
+<div class="r2"><span class="lb">Extend</span>${sl_('ex',[["Don't extend",0],['Extend lines left',1],['Extend lines right',2],['Extend lines left & right',3]],(o.exl?1:0)|(o.exr?2:0))}</div>
+<div class="fl"><div>${o.lv.slice(0,12).map((l,i)=>row(l,i)).join('')}</div><div>${o.lv.slice(12,24).map((l,i)=>row(l,i+12)).join('')}</div></div>
+<div class="r2"><span class="lb">Use one color</span><span class="dsw" data-sw2="one"><i style="background:linear-gradient(135deg,#26a69a 50%,#ef5350 50%)"></i></span></div>
+<div class="r2"><label class="ck">${ck_('fbg',gv(o,'fbg',1))}Background</label><input type="range" min="0" max="100" data-k="fbo" data-ty="num" value="${gv(o,'fbo',10)}"></div>
+<div class="r2"><label class="ck">${ck_('rev',o.rev)}Reverse</label></div>
+<div class="r2"><label class="ck">${ck_('shp',o.shp)}Prices</label></div>
+<div class="r2"><label class="ck">${ck_('shl',gv(o,'shl',1))}Levels</label>${sl_('lvm',[['Values','v'],['Percents','p']],gv(o,'lvm','p'))}</div>
+<div class="r2"><span class="lb">Labels</span>${sl_('lpos',[['Left','left'],['Right','right']],gv(o,'lpos','right'))}${sl_('lvv',[['Top','top'],['Middle','middle'],['Bottom','bottom']],gv(o,'lvv','middle'))}</div>
+<div class="r2"><label class="ck">${ck_('stx',gv(o,'stx',1))}Text</label>${sl_('tha',[['Left','left'],['Center','center'],['Right','right']],gv(o,'tha','right'))}${sl_('tvv',[['Top','top'],['Middle','middle'],['Bottom','bottom']],gv(o,'tvv','middle'))}</div>
+<div class="r2"><span class="lb"></span><input type="text" data-k="txt" data-ty="str" placeholder="Add text" value="${String(o.txt||'').replace(/"/g,'&quot;')}" style="flex:1"></div>
+<div class="r2"><span class="lb">Font size</span>${sl_('fs',FSZ,o.fs||11)}</div>
+<div class="r2"><label class="ck"><input type="checkbox" checked disabled>Fib levels based on log scale</label></div>`}
+const posPrec=()=>(setC&&setC.precision)||2,posMt=()=>Math.pow(10,-posPrec());
+function posVals(o){const dir=o.k==='long'?1:-1,A=o.p[0],B=o.p[1],rr=+(o.rr||1),d=Math.abs(B.p-A.p),mt=posMt(),pc=posPrec();return{pt:Math.round(d/mt),pp:+(A.p+dir*d).toFixed(pc+2),st:Math.round(d/rr/mt),sp:+(A.p-dir*d/rr).toFixed(pc+2),rr:+rr.toFixed(3)}}
+function posInputs(o){const v=posVals(o),A=o.p[0];
+ return `<div class="r2"><span class="lb">Account size</span><input type="number" data-k="acc" data-ty="num" min="1" step="1" value="${gv(o,'acc',1000)}">${sl_('cur',['USD','USDT','EUR','GBP'].map(x=>[x,x]),gv(o,'cur','USD'))}</div>
+<div class="r2"><span class="lb">Lot size</span><span class="st">${gv(o,'lot',0.01)}</span></div>
+<div class="r2"><span class="lb">Risk</span><input type="number" data-k="risk" data-ty="num" min="0.01" step="0.1" value="${gv(o,'risk',1)}">${sl_('rku',[['%','%'],['USD','$']],gv(o,'rku','%'))}</div>
+<div class="r2"><span class="lb">Risk/Reward</span><input type="number" data-k="rr" data-ty="num" min="0.1" max="50" step="0.1" value="${v.rr}"></div>
+<div class="r2"><span class="lb">Entry price</span><span class="st">${+A.p.toFixed(posPrec()+2)}</span></div>
+<div class="r2"><span class="lb">Leverage</span><span class="st">${gv(o,'lev','100.0')}</span></div>
+<div class="hd3">PROFIT LEVEL</div>
+<div class="r2"><span class="lb">Ticks</span><input type="number" data-pf="pt" step="1" min="1" value="${v.pt}"></div>
+<div class="r2"><span class="lb">Price</span><input type="number" data-pf="pp" step="any" value="${v.pp}"></div>
+<div class="hd3">STOP LEVEL</div>
+<div class="r2"><span class="lb">Ticks</span><input type="number" data-pf="st" step="1" min="1" value="${v.st}"></div>
+<div class="r2"><span class="lb">Price</span><input type="number" data-pf="sp" step="any" value="${v.sp}"></div>
+<div class="r2"><span class="lb">QTY precision</span>${sl_('qp',[0,1,2,3,4].map(n=>[n+' decimals',n]),gv(o,'qp',2))}</div>`}
+function posStyle(o){return `<div class="r2"><span class="lb">Lines</span>${sw_('col',HX(o.col))}${sl_('ls',LSTY,gv(o,'ls',0))}</div>
+<div class="r2"><span class="lb">Stop color</span>${sw_('sl',HX(o.sl||'#f23645'))}</div>
+<div class="r2"><span class="lb">Target color</span>${sw_('tp',HX(o.tp||'#089981'))}</div>
+<div class="r2"><span class="lb">Text</span>${sw_('tc',HX(o.tc&&o.tc!=='#d1d4dc'?o.tc:'#ffffff'))}${sl_('fs',FSZ,o.fs||11)}</div>
+<div class="r2"><label class="ck">${ck_('shp',gv(o,'shp',1))}Price labels</label></div>
+<div class="hd3">INFO</div>
+<div class="r2"><span class="lb">Stats</span>${sl_('pst',[['Target, stop and PnL','full'],['Target and stop only','tpsl'],['PnL only','pnl']],gv(o,'pst','full'))}</div>
+<div class="r2"><label class="ck">${ck_('pcm',o.pcm)}Compact stats mode</label></div>
+<div class="r2"><label class="ck">${ck_('pas',o.pas)}Always show stats</label></div>`}
+function syncPos(except){const o=setO,P=$('#dpset');if(!o||!P||!PHK.has(o.k))return;const v=posVals(o);Object.keys(v).forEach(k=>{if(k===except)return;const i=k==='rr'?P.querySelector('[data-k="rr"]'):P.querySelector(`[data-pf="${k}"]`);if(i&&i!==D.activeElement)i.value=v[k]})}
+function posEdit(t){const o=setO,dir=o.k==='long'?1:-1,A=o.p[0],B=o.p[1],d=Math.abs(B.p-A.p),mt=posMt(),k=t.dataset.pf,v=parseFloat(t.value);if(!Number.isFinite(v))return;
+ if(k==='pt')B.p=A.p+dir*Math.max(1,v)*mt;else if(k==='pp'){if(dir*(v-A.p)>0)B.p=v}
+ else if(k==='st')o.rr=Math.max(.1,Math.min(50,d/(Math.max(1,v)*mt)));else if(k==='sp'){const dS=dir*(A.p-v);if(dS>0)o.rr=Math.max(.1,Math.min(50,d/dS))}
+ syncPos(k)}
+function openSw(sw){const o=setO;if(!o||!window.tvColorPop)return;const id=sw.dataset.sw2,T=S.tv||(S.tv={});let cur;
+ if(id.startsWith('f:')){const fk=id.slice(2);cur=o[fk]||(fk==='fill'||fk==='tc'?o.col:'#808080');if(fk==='fill'){T.__sa=Math.round((o.fo==null?.15:o.fo)*100);sw.dataset.a='__sa'}else delete sw.dataset.a}else if(id.startsWith('lv:'))cur=o.lv[+id.slice(3)].c;else if(id==='trend')cur=o.tcol||'#787b86';else if(id==='one')cur=(o.lv&&o.lv[0]&&o.lv[0].c)||'#f23645';else cur=o[id]||(id==='tp'?'#089981':id==='sl'?'#f23645':id==='tc'?'#ffffff':'#808080');
+ T.__sc=HX(cur);sw.dataset.sw='__sc';
+ tvColorPop(D.body,sw,(k,val)=>{if(k==='__sa'){o.fo=val/100;const i2=sw.querySelector('i');if(i2)i2.style.background=rgbaS(HX(o[id.slice(2)]||o.col),o.fo);const P=$('#dpset'),n=P&&P.querySelector('[data-k="fo"]');if(n)n.value=+o.fo.toFixed(2);touchDef(o);save();return}T.__sc=val;if(id.startsWith('f:')){o[id.slice(2)]=val;touchDef(o)}else if(id.startsWith('lv:'))o.lv[+id.slice(3)].c=val;else if(id==='trend')o.tcol=val;else if(id==='one'){(o.lv||[]).forEach(l=>l.c=val)}else{o[id]=val;if(id==='col')touchDef(o)}
+  const i=sw.querySelector('i');if(i&&id!=='one')i.style.background=id==='f:fill'?rgbaS(val,o.fo==null?.15:o.fo):val;if(id==='one'){const P=$('#dpset');P&&P.querySelectorAll('[data-sw2^="lv:"] i').forEach((x,j)=>x.style.background=o.lv[+x.parentNode.dataset.sw2.slice(3)].c)}save()},()=>{})}
 let setSnap=null;
-function openSet(o,c,tab){setO=o;setSnap=JSON.stringify(o);setC=c||actChart();setTab=tab||'Style';let P=$('#dpset');if(!P){P=D.createElement('div');P.id='dpset';P.innerHTML='<div class="dph"><span></span><i data-e="1" title="Rename">✎</i><b data-x="1">✕</b></div><div class="dptb"></div><div class="dpbd"></div><div class="dpf"><button data-a="tpl">Template ⌄</button><div class="tmenu"><div data-a="def">Save as default</div><div data-a="clone">Clone</div><div data-a="lock" class="lock">Lock</div><div data-a="del">Delete</div></div><span style="flex:1"></span><button class="cn" data-a="cancel">Cancel</button><button class="pr" data-a="ok">Ok</button></div>';D.body.appendChild(P);
-  P.onclick=e=>{const t=e.target,a=t.dataset.a,tm=P.querySelector('.tmenu');if(t.dataset.e){const n=prompt('Drawing name',setO.nm||(TD[setO.k]||{}).n||setO.k);if(n!=null){setO.nm=n.trim()||undefined;save();setBody()}return}if(a==='tpl'){tm.classList.toggle('on');return}tm.classList.remove('on');
+function openSet(o,c,tab){setO=o;setSnap=JSON.stringify(o);setC=c||actChart();setTab=tab||(PHK.has(o.k)?'Inputs':'Style');if(o.k==='fib')fibPad(o);let P=$('#dpset');if(!P){P=D.createElement('div');P.id='dpset';P.innerHTML='<div class="dph"><span></span><i data-e="1" title="Rename">✎</i><b data-x="1">✕</b></div><div class="dptb"></div><div class="dpbd"></div><div class="dpf"><button data-a="tpl">Template ⌄</button><div class="tmenu"><div data-a="def">Save as default</div><div data-a="clone">Clone</div><div data-a="lock" class="lock">Lock</div><div data-a="del">Delete</div></div><span style="flex:1"></span><button class="cn" data-a="cancel">Cancel</button><button class="pr" data-a="ok">Ok</button></div>';D.body.appendChild(P);
+  P.onclick=e=>{const t=e.target,a=t.dataset.a,tm=P.querySelector('.tmenu');{const sw=t.closest&&t.closest('[data-sw2]');if(sw){e.stopPropagation();openSw(sw);return}}if(t.dataset.e){const n=prompt('Drawing name',setO.nm||(TD[setO.k]||{}).n||setO.k);if(n!=null){setO.nm=n.trim()||undefined;save();setBody()}return}if(a==='tpl'){tm.classList.toggle('on');return}tm.classList.remove('on');
    if(t.dataset.x||a==='cancel'){if(a==='cancel'&&setSnap&&setO){const s=JSON.parse(setSnap);Object.keys(setO).forEach(k=>delete setO[k]);Object.assign(setO,s);save()}closeSet();return}
    if(a==='ok'){closeSet();return}if(t.dataset.tab){setTab=t.dataset.tab;setBody();return}
    if(a==='def'){touchDef(setO);return}if(a==='del'){delSel();return}if(a==='clone'){clone(setO,setC);return}if(a==='lock'){setO.lk=setO.lk?0:1;setBody();save()}};
   const ap=e=>{const t=e.target,o2=setO;if(!o2)return;
    if(t.dataset.k){const f=t.dataset.k,ty=t.dataset.ty;o2[f]=ty==='chk'?+t.checked:ty==='num'?(Number.isFinite(parseFloat(t.value))?parseFloat(t.value):o2[f]):ty==='sel'?(isNaN(+t.value)?t.value:+t.value):t.value;
-    if(f==='ex'){o2.exl=o2.ex&1?1:0;o2.exr=o2.ex&2?1:0}if(['w','ls','col','fill','fo','tc','fs','b','i'].includes(f))touchDef(o2);if(f==='rows'||f==='cols'){}}
+    if(f==='ex'){o2.exl=o2.ex&1?1:0;o2.exr=o2.ex&2?1:0}if(f==='rr'||f==='risk'||f==='acc')syncPos(f);if(['w','ls','col','fill','fo','tc','fs','b','i'].includes(f))touchDef(o2);if(f==='rows'||f==='cols'){}}
+   else if(t.dataset.pf){posEdit(t)}
    else if(t.dataset.li!=null){const l=o2.lv[+t.dataset.li],f=t.dataset.lf;l[f]=f==='on'?+t.checked:f==='v'?(Number.isFinite(parseFloat(t.value))?parseFloat(t.value):l.v):t.value}
    else if(t.dataset.ci!=null){const q=o2.p[+t.dataset.ci];if(t.dataset.cf==='t'){const s=new Date(t.value).getTime()/1000;if(Number.isFinite(s))q.t=Math.round(s)}else{const v=parseFloat(t.value);if(Number.isFinite(v))q.p=v}}
    else if(t.dataset.vi!=null){o2.vis=o2.vis||[1,1,1,1];o2.vis[+t.dataset.vi]=+t.checked}
